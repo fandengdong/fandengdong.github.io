@@ -9,6 +9,6 @@ layout: single
 
 
 <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
-    {{< button href="/LLM/mindspeed/" text="mindspeed" icon="🔧" >}}
-    {{< button href="/LLM/vllm/" text="vllm" icon="🤖" >}}
+    {{< button href="/llm/mindspeed/" text="mindspeed" icon="🔧" >}}
+    {{< button href="/llm/vllm/" text="vllm" icon="🤖" >}}
 </div>
