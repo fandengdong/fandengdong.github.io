@@ -1,0 +1,24 @@
+{{- $name := .Get "name" | default "Tool" -}}
+{{- $path := .Get "path" | default "#" -}}
+{{- $icon := .Get "icon" | default "🛠️" -}}
+
+<a href="{{ $path }}" style="
+  display: block;
+  padding: 1.2rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #1f2937;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+">
+  <div style="font-size: 2rem; margin-bottom: 0.5rem;">{{ $icon }}</div>
+  <div>{{ $name }}</div>
+</a>

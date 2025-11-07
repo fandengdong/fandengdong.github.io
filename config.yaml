@@ -11,6 +11,7 @@ markup:
   goldmark:
     renderer:
       unsafe: true  # 允许 HTML（如 <img>）
+    smart: true
   highlight:
     noClasses: false
   math:

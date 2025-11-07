@@ -1,5 +1,5 @@
 ---
-title: "Welcome to my workspace"
+title: "欢迎来到我的工作空间"
 layout: home
 menu: main
 ---
@@ -12,18 +12,7 @@ menu: main
   </p>
 
   <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
-    <a href="/toolbox/" 
-       style="display: block; padding: 1rem 2rem; background: #f0f8ff; border-radius: 12px; text-decoration: none; color: #2c3e50; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;"
-       onmouseover="this.style.transform='scale(1.03)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)';"
-       onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.1)';">
-      🔧 工具箱
-    </a>
-
-    <a href="/llm/" 
-       style="display: block; padding: 1rem 2rem; background: #fff8e1; border-radius: 12px; text-decoration: none; color: #2c3e50; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;"
-       onmouseover="this.style.transform='scale(1.03)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)';"
-       onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.1)';">
-      🤖 LLM
-    </a>
+    {{< button href="/toolbox/" text="工具箱" icon="🔧" >}}
+    {{< button href="/llm/" text="LLM" icon="🤖" >}}
   </div>
 </div>

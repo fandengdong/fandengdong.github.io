@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
-    <title>欢迎来到我的工作空间 on My work notes</title>
-    <link>http://localhost:1313/</link>
-    <description>Recent content in 欢迎来到我的工作空间 on My work notes</description>
+    <title>Hugo 静态站点生成器 on My work notes</title>
+    <link>http://localhost:1313/toolbox/hugo/</link>
+    <description>Recent content in Hugo 静态站点生成器 on My work notes</description>
     <generator>Hugo -- 0.152.2</generator>
     <language>zh-CN</language>
-    <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="http://localhost:1313/toolbox/hugo/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>hugo搭建个人网站笔记</title>
       <link>http://localhost:1313/toolbox/hugo/demo_tutotial/</link>
