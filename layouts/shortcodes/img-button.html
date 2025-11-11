@@ -1,0 +1,32 @@
+{{- $href := .Get "href" | default "#" -}}
+{{- $text := .Get "text" | default "Button" -}}
+{{- $imgSrc := .Get "img" | default "/images/default-icon.png" -}}
+{{- $width := .Get "width" | default "100" -}}   <!-- 最大宽度 -->
+{{- $height := .Get "height" | default "24" -}}  <!-- 固定高度 -->
+
+<a href="{{ $href }}" style="
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem; /* ← 增加间距，比默认 0.5rem 更宽松 */
+  padding: 0.6rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #334155;
+  font-weight: 500;
+  transition: all 0.2s ease;
+">
+  <img 
+    src="{{ $imgSrc }}" 
+    alt="{{ $text }} logo"
+    style="
+      height: {{ $height }}px;
+      width: auto;
+      max-width: {{ $width }}px; /* ← 防止过宽 */
+      object-fit: contain;
+      vertical-align: middle;
+    "
+  />
+  {{ $text }}
+</a>

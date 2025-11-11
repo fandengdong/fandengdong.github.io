@@ -9,6 +9,7 @@ layout: single
 
 
 <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
-    {{< button href="/llm/mindspeed/" text="mindspeed" icon="🔧" >}}
-    {{< button href="/llm/vllm/" text="vllm" icon="🤖" >}}
+    {{< img-button href="/llm/mindspeed/" text="MindSpeed" img="/images/mindspeed-logo.png" width="24" >}}
+    {{< img-button href="/llm/vllm/" text="vLLM" img="/images/vllm-logo.png" >}}
+    {{< img-button href="/llm/sglang/" text="SGLang" img="/images/sglang-logo.png"  >}}
 </div>

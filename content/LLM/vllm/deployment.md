@@ -14,3 +14,4 @@ Installing vLLM is straightforward using pip:
 
 ```bash
 pip install vllm
+```

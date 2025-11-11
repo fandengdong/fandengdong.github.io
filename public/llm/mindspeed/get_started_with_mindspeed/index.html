@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>开始使用 Mindspeed | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="本指南通过示例代码演示如何使用 Megatron 进行 Mindspeed 训练。
+Mindspeed 并行环境初始化
+作为一个分布式的大模型训练框架，Mindspeed 在初始化期间需要设置分布式环境。核心初始化代码如下：
+import torch
+import mindspeed.megatron_adaptor  # 导入适配器以确保 Mindspeed 与 Megatron 兼容
+from megatron.core import parallel_state
+
+def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1):
+    parallel_state.destroy_model_parallel()
+
+    # 标准 PyTorch 分布式训练设置
+    rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0))
+    world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1))
+    torch.cuda.set_device(rank)
+    torch.distributed.init_process_group(world_size=world_size, rank=rank)
+
+    # Megatron 特定的分布式训练初始化
+    parallel_state.initialize_model_parallel(tensor_model_parallel_size, pipeline_model_parallel_size)
+与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。
+此外，还需要注意，添加代码行import mindspeed.megatron_adaptor来保证Mindspeed对Megatron的API进行兼容。
+Mindspeed 模型初始化
+
+from megatron.core.transformer.transformer_config import TransformerConfig
+from megatron.core.models.gpt.gpt_model import GPTModel
+
+def model_provider():
+    &#34;&#34;&#34;
+    Build the model.
+    &#34;&#34;&#34;
+    transformer_config = TransformerConfig(
+        num_layers=2, 
+        hidden_size=12, 
+        num_attention_heads=4, 
+        use_cpu_initialization=True,
+        pipeline_dtype=torch.float32,
+        params_dtype=torch.float16, # 控制模型参数类型
+        bf16=True, # 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果
+    )
+
+    print(&#34;Creating GPT model...&#34;)
+    gpt_model = GPTModel(
+        config=transformer_config, 
+        transformer_layer_spec=get_gpt_layer_local_spec(), 
+        vocab_size=100, 
+        max_sequence_length=_SEQUENCE_LENGTH,
+    )    
+    print(gpt_model)
+    print(&#34;GPT model created.&#34;)
+    return gpt_model
+可以看到模型初始化分为两步：">
+<meta name="author" content="fandengdong">
+<link rel="canonical" href="http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><meta property="og:url" content="http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/">
+  <meta property="og:site_name" content="My work notes">
+  <meta property="og:title" content="开始使用 Mindspeed">
+  <meta property="og:description" content="本指南通过示例代码演示如何使用 Megatron 进行 Mindspeed 训练。
+Mindspeed 并行环境初始化 作为一个分布式的大模型训练框架，Mindspeed 在初始化期间需要设置分布式环境。核心初始化代码如下：
+import torch import mindspeed.megatron_adaptor # 导入适配器以确保 Mindspeed 与 Megatron 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式训练设置 rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0)) world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # Megatron 特定的分布式训练初始化 parallel_state.initialize_model_parallel(tensor_model_parallel_size, pipeline_model_parallel_size) 与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。
+此外，还需要注意，添加代码行import mindspeed.megatron_adaptor来保证Mindspeed对Megatron的API进行兼容。
+Mindspeed 模型初始化 from megatron.core.transformer.transformer_config import TransformerConfig from megatron.core.models.gpt.gpt_model import GPTModel def model_provider(): &#34;&#34;&#34; Build the model. &#34;&#34;&#34; transformer_config = TransformerConfig( num_layers=2, hidden_size=12, num_attention_heads=4, use_cpu_initialization=True, pipeline_dtype=torch.float32, params_dtype=torch.float16, # 控制模型参数类型 bf16=True, # 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果 ) print(&#34;Creating GPT model...&#34;) gpt_model = GPTModel( config=transformer_config, transformer_layer_spec=get_gpt_layer_local_spec(), vocab_size=100, max_sequence_length=_SEQUENCE_LENGTH, ) print(gpt_model) print(&#34;GPT model created.&#34;) return gpt_model 可以看到模型初始化分为两步：">
+  <meta property="og:locale" content="zh-CN">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2025-11-11T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-11-11T00:00:00+00:00">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="开始使用 Mindspeed">
+<meta name="twitter:description" content="本指南通过示例代码演示如何使用 Megatron 进行 Mindspeed 训练。
+Mindspeed 并行环境初始化
+作为一个分布式的大模型训练框架，Mindspeed 在初始化期间需要设置分布式环境。核心初始化代码如下：
+import torch
+import mindspeed.megatron_adaptor  # 导入适配器以确保 Mindspeed 与 Megatron 兼容
+from megatron.core import parallel_state
+
+def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1):
+    parallel_state.destroy_model_parallel()
+
+    # 标准 PyTorch 分布式训练设置
+    rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0))
+    world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1))
+    torch.cuda.set_device(rank)
+    torch.distributed.init_process_group(world_size=world_size, rank=rank)
+
+    # Megatron 特定的分布式训练初始化
+    parallel_state.initialize_model_parallel(tensor_model_parallel_size, pipeline_model_parallel_size)
+与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。
+此外，还需要注意，添加代码行import mindspeed.megatron_adaptor来保证Mindspeed对Megatron的API进行兼容。
+Mindspeed 模型初始化
+
+from megatron.core.transformer.transformer_config import TransformerConfig
+from megatron.core.models.gpt.gpt_model import GPTModel
+
+def model_provider():
+    &#34;&#34;&#34;
+    Build the model.
+    &#34;&#34;&#34;
+    transformer_config = TransformerConfig(
+        num_layers=2, 
+        hidden_size=12, 
+        num_attention_heads=4, 
+        use_cpu_initialization=True,
+        pipeline_dtype=torch.float32,
+        params_dtype=torch.float16, # 控制模型参数类型
+        bf16=True, # 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果
+    )
+
+    print(&#34;Creating GPT model...&#34;)
+    gpt_model = GPTModel(
+        config=transformer_config, 
+        transformer_layer_spec=get_gpt_layer_local_spec(), 
+        vocab_size=100, 
+        max_sequence_length=_SEQUENCE_LENGTH,
+    )    
+    print(gpt_model)
+    print(&#34;GPT model created.&#34;)
+    return gpt_model
+可以看到模型初始化分为两步：">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "Mindspeed",
+      "item": "http://localhost:1313/llm/mindspeed/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "开始使用 Mindspeed",
+      "item": "http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "开始使用 Mindspeed",
+  "name": "开始使用 Mindspeed",
+  "description": "本指南通过示例代码演示如何使用 Megatron 进行 Mindspeed 训练。\nMindspeed 并行环境初始化 作为一个分布式的大模型训练框架，Mindspeed 在初始化期间需要设置分布式环境。核心初始化代码如下：\nimport torch import mindspeed.megatron_adaptor # 导入适配器以确保 Mindspeed 与 Megatron 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式训练设置 rank = int(os.environ.get(\u0026#39;LOCAL_RANK\u0026#39;, 0)) world_size = int(os.environ.get(\u0026#34;WORLD_SIZE\u0026#34;, 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # Megatron 特定的分布式训练初始化 parallel_state.initialize_model_parallel(tensor_model_parallel_size, pipeline_model_parallel_size) 与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。\n此外，还需要注意，添加代码行import mindspeed.megatron_adaptor来保证Mindspeed对Megatron的API进行兼容。\nMindspeed 模型初始化 from megatron.core.transformer.transformer_config import TransformerConfig from megatron.core.models.gpt.gpt_model import GPTModel def model_provider(): \u0026#34;\u0026#34;\u0026#34; Build the model. \u0026#34;\u0026#34;\u0026#34; transformer_config = TransformerConfig( num_layers=2, hidden_size=12, num_attention_heads=4, use_cpu_initialization=True, pipeline_dtype=torch.float32, params_dtype=torch.float16, # 控制模型参数类型 bf16=True, # 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果 ) print(\u0026#34;Creating GPT model...\u0026#34;) gpt_model = GPTModel( config=transformer_config, transformer_layer_spec=get_gpt_layer_local_spec(), vocab_size=100, max_sequence_length=_SEQUENCE_LENGTH, ) print(gpt_model) print(\u0026#34;GPT model created.\u0026#34;) return gpt_model 可以看到模型初始化分为两步：\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "本指南通过示例代码演示如何使用 Megatron 进行 Mindspeed 训练。\nMindspeed 并行环境初始化 作为一个分布式的大模型训练框架，Mindspeed 在初始化期间需要设置分布式环境。核心初始化代码如下：\nimport torch import mindspeed.megatron_adaptor # 导入适配器以确保 Mindspeed 与 Megatron 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式训练设置 rank = int(os.environ.get('LOCAL_RANK', 0)) world_size = int(os.environ.get(\"WORLD_SIZE\", 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # Megatron 特定的分布式训练初始化 parallel_state.initialize_model_parallel(tensor_model_parallel_size, pipeline_model_parallel_size) 与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。\n此外，还需要注意，添加代码行import mindspeed.megatron_adaptor来保证Mindspeed对Megatron的API进行兼容。\nMindspeed 模型初始化 from megatron.core.transformer.transformer_config import TransformerConfig from megatron.core.models.gpt.gpt_model import GPTModel def model_provider(): \"\"\" Build the model. \"\"\" transformer_config = TransformerConfig( num_layers=2, hidden_size=12, num_attention_heads=4, use_cpu_initialization=True, pipeline_dtype=torch.float32, params_dtype=torch.float16, # 控制模型参数类型 bf16=True, # 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果 ) print(\"Creating GPT model...\") gpt_model = GPTModel( config=transformer_config, transformer_layer_spec=get_gpt_layer_local_spec(), vocab_size=100, max_sequence_length=_SEQUENCE_LENGTH, ) print(gpt_model) print(\"GPT model created.\") return gpt_model 可以看到模型初始化分为两步：\nTransformer的配置参数，包括transformer layer层数，hidden size，attention heads数，模型参数数据类型。 模型结构，包括transformer layer层，以及vocab size和max sequence length。 上面这两步基本可以自定义一个Transformer网络的结构了。可以查看模型打印出来的结构：\nGPTModel( (embedding): LanguageModelEmbedding( (word_embeddings): VocabParallelEmbedding() (position_embeddings): Embedding(64, 12) (embedding_dropout): Dropout(p=0.1, inplace=False) ) (decoder): TransformerBlock( (layers): ModuleList( (0-1): 2 x TransformerLayer( (input_layernorm): FusedLayerNorm() (self_attention): SelfAttention( (core_attention): DotProductAttention( (scale_mask_softmax): FusedScaleMaskSoftmax() (attention_dropout): Dropout(p=0.1, inplace=False) ) (linear_proj): RowParallelLinear(in_features=12, out_features=12, bias=False, TP=1) (linear_qkv): ColumnParallelLinear(in_features=12, out_features=36, bias=False, TP=1) (q_layernorm): IdentityOp() (k_layernorm): IdentityOp() ) (pre_cross_attn_layernorm): IdentityOp() (cross_attention): IdentityOp() (cross_attn_bda): IdentityFuncOp() (pre_mlp_layernorm): FusedLayerNorm() (mlp): MLP( (linear_fc1): ColumnParallelLinear(in_features=12, out_features=48, bias=False, TP=1) (linear_fc2): RowParallelLinear(in_features=48, out_features=12, bias=False, TP=1) ) ) ) (final_layernorm): FusedLayerNorm() ) (output_layer): ColumnParallelLinear(in_features=12, out_features=100, bias=False, TP=1) ) 同时，我们也可以打印出模型参数的信息(TP=PP=1)：\nembedding.word_embeddings.weight, [100, 12], torch.float16, cpu embedding.position_embeddings.weight, [64, 12], torch.float32, cpu decoder.layers.0.input_layernorm.weight, [12], torch.float32, cpu decoder.layers.0.input_layernorm.bias, [12], torch.float32, cpu decoder.layers.0.self_attention.linear_proj.weight, [12, 12], torch.float16, cpu decoder.layers.0.self_attention.linear_proj.bias, [12], torch.float16, cpu decoder.layers.0.self_attention.linear_qkv.weight, [36, 12], torch.float16, cpu decoder.layers.0.self_attention.linear_qkv.bias, [36], torch.float16, cpu decoder.layers.0.pre_mlp_layernorm.weight, [12], torch.float32, cpu decoder.layers.0.pre_mlp_layernorm.bias, [12], torch.float32, cpu decoder.layers.0.mlp.linear_fc1.weight, [48, 12], torch.float16, cpu decoder.layers.0.mlp.linear_fc1.bias, [48], torch.float16, cpu decoder.layers.0.mlp.linear_fc2.weight, [12, 48], torch.float16, cpu decoder.layers.0.mlp.linear_fc2.bias, [12], torch.float16, cpu decoder.layers.1.input_layernorm.weight, [12], torch.float32, cpu decoder.layers.1.input_layernorm.bias, [12], torch.float32, cpu decoder.layers.1.self_attention.linear_proj.weight, [12, 12], torch.float16, cpu decoder.layers.1.self_attention.linear_proj.bias, [12], torch.float16, cpu decoder.layers.1.self_attention.linear_qkv.weight, [36, 12], torch.float16, cpu decoder.layers.1.self_attention.linear_qkv.bias, [36], torch.float16, cpu decoder.layers.1.pre_mlp_layernorm.weight, [12], torch.float32, cpu decoder.layers.1.pre_mlp_layernorm.bias, [12], torch.float32, cpu decoder.layers.1.mlp.linear_fc1.weight, [48, 12], torch.float16, cpu decoder.layers.1.mlp.linear_fc1.bias, [48], torch.float16, cpu decoder.layers.1.mlp.linear_fc2.weight, [12, 48], torch.float16, cpu decoder.layers.1.mlp.linear_fc2.bias, [12], torch.float16, cpu decoder.final_layernorm.weight, [12], torch.float32, cpu decoder.final_layernorm.bias, [12], torch.float32, cpu output_layer.weight, [100, 12], torch.float16, cpu Summary: Unique dtypes in model: {torch.float16, torch.float32} Unique devices in model: {device(type='cpu')} Total parameters: 6960 注意观察我们设置的参数与上面参数维度的对应关系：\nvocab_size: 100 hidden_size: 12 sequence_length: 64 num_attention_heads: 4 还可以发现，虽然参数类型设置的是float16，但是模型参数并不都是float16，有部分网络参数仍然为float32，特别是layernorm的网络层。\n我们也可以打印出其它并行配置下模型参数的信息(TP=2, PP=1)：\nembedding.word_embeddings.weight, [50, 12], torch.float16, cpu embedding.position_embeddings.weight, [64, 12], torch.float32, cpu decoder.layers.0.input_layernorm.weight, [12], torch.float32, cpu decoder.layers.0.input_layernorm.bias, [12], torch.float32, cpu decoder.layers.0.self_attention.linear_proj.weight, [12, 6], torch.float16, cpu decoder.layers.0.self_attention.linear_proj.bias, [12], torch.float16, cpu decoder.layers.0.self_attention.linear_qkv.weight, [18, 12], torch.float16, cpu decoder.layers.0.self_attention.linear_qkv.bias, [18], torch.float16, cpu decoder.layers.0.pre_mlp_layernorm.weight, [12], torch.float32, cpu decoder.layers.0.pre_mlp_layernorm.bias, [12], torch.float32, cpu decoder.layers.0.mlp.linear_fc1.weight, [24, 12], torch.float16, cpu decoder.layers.0.mlp.linear_fc1.bias, [24], torch.float16, cpu decoder.layers.0.mlp.linear_fc2.weight, [12, 24], torch.float16, cpu decoder.layers.0.mlp.linear_fc2.bias, [12], torch.float16, cpu decoder.layers.1.input_layernorm.weight, [12], torch.float32, cpu decoder.layers.1.input_layernorm.bias, [12], torch.float32, cpu decoder.layers.1.self_attention.linear_proj.weight, [12, 6], torch.float16, cpu decoder.layers.1.self_attention.linear_proj.bias, [12], torch.float16, cpu decoder.layers.1.self_attention.linear_qkv.weight, [18, 12], torch.float16, cpu decoder.layers.1.self_attention.linear_qkv.bias, [18], torch.float16, cpu decoder.layers.1.pre_mlp_layernorm.weight, [12], torch.float32, cpu decoder.layers.1.pre_mlp_layernorm.bias, [12], torch.float32, cpu decoder.layers.1.mlp.linear_fc1.weight, [24, 12], torch.float16, cpu decoder.layers.1.mlp.linear_fc1.bias, [24], torch.float16, cpu decoder.layers.1.mlp.linear_fc2.weight, [12, 24], torch.float16, cpu decoder.layers.1.mlp.linear_fc2.bias, [12], torch.float16, cpu decoder.final_layernorm.weight, [12], torch.float32, cpu decoder.final_layernorm.bias, [12], torch.float32, cpu output_layer.weight, [50, 12], torch.float16, cpu Summary: Unique dtypes in model: {torch.float32, torch.float16} Unique devices in model: {device(type='cpu')} Total parameters: 3948 可以看到，有的参数的维度减半了！\n另外，我们注意到在这里，我们设置bf16=True，去检查模型的参数，或者debug模型中间层的输入输出，其类型依然是float32。这是因为我们这里没有调用megatron.training.get_model函数，而是直接调用了megatron.model.GPTModel，这里GPTModel没有对模型的数值类型做任何的处理，仅仅是通过para_dtype初始化了模型参数。而get_model函数里面，则会根据bf16参数，对模型参数进行类型转换：\nfrom megatron.core.enums import ModelType def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap_with_ddp=True): ... # Fp16 conversion. if args.fp16 or args.bf16: config = get_model_config(model[0]) model = [Float16Module(config, model_module) for model_module in model] ... 这里，我们还可以查看Float16Module的实现，该模块将模型转换为半精度浮点数。\nclass Float16Module(MegatronModule): \"\"\"Float 16 Module. Attributes: config (TransformerConfig): Transformer config fp16 (bool) : Specifies if the model runs in fp16 mode bf16 (bool) : Specifies if the model runs in bf16 mode Args: config (TransformerConfig): The transformer config used to initalize the model \"\"\" def __init__(self, config: TransformerConfig, module: torch.nn.Module): super(Float16Module, self).__init__(config) self.config = config self.fp16 = config.fp16 self.bf16 = config.bf16 if self.fp16: self.add_module('module', module.half()) def float16_convertor(val): return val.half() elif self.bf16: self.add_module('module', module.bfloat16()) def float16_convertor(val): return val.bfloat16() else: raise Exception('Either config.fp16 or config.bf16 should be True.') self.float16_convertor = float16_convertor def set_input_tensor(self, input_tensor): return self.module.set_input_tensor(input_tensor) def forward(self, *inputs, **kwargs): if parallel_state.is_pipeline_first_stage(): inputs = fp32_to_float16(inputs, self.float16_convertor) outputs = self.module(*inputs, **kwargs) if parallel_state.is_pipeline_last_stage(): outputs = float16_to_fp32(outputs) return outputs def state_dict(self, destination=None, prefix='', keep_vars=False): return self.module.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars) def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False): \"\"\"Retrieve state_dict from the module being wrapped.\"\"\" return self.module.state_dict_for_save_checkpoint(prefix=prefix, keep_vars=keep_vars) def sharded_state_dict(self, prefix='', *args, **kwargs): \"\"\"Retrieve sharded_state_dict from the module being wrapped.\"\"\" return self.module.sharded_state_dict(prefix, *args, **kwargs) def load_state_dict(self, state_dict, strict=True): self.module.load_state_dict(state_dict, strict=strict) MindSpeed 训练主循环入口 在基于Megatron的模型训练中，我们经常看到这样的训练循环：\nfrom megatron.core.pipeline_parallel.schedules import get_forward_backward_func optim = Adam(gpt_model.parameters()) forward_backward_func = get_forward_backward_func() for i in range(5): print(f\"Starting iteration {i+1}/5...\") optim.zero_grad() print(\"Gradients zeroed.\") losses_reduced = forward_backward_func( forward_step_func=forward_step_func, data_iterator=train_iterator, model=gpt_model, num_microbatches=1, seq_length=_SEQUENCE_LENGTH, micro_batch_size=8, decoder_seq_length=_SEQUENCE_LENGTH, forward_only=False) print(f\"Forward-backward pass completed with losses: {losses_reduced}\") optim.step() 可以看到，forward_backward_func是megatron内置的包装好的函数，其内置了前向和反向的计算过程，我们需要做的就是传入自定义的forward_step_func和data_iterator和model。输出则是reduced的loss，其shape为[bs, seq_len]，即每一个token的loss。\n自定义的前向函数，主要包括了对输入数据的简单预处理和loss函数的定义：\ndef forward_step_func(data_iterator, model): \"\"\" 自定义前向函数 Notes: 1. model(tokens, position_ids, attention_mask, labels=labels)返回的是loss，而不是logits 2. 要返回logits，则仅需要拿掉labels参数即可 \"\"\" def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor): losses = output_tensor.float() loss_mask = loss_mask.view(-1).float() loss = torch.sum(losses.view(-1) * loss_mask) / loss_mask.sum() # If you have data parallel reduce loss across data parallel groups. # If pipeline parallel, loss computation is done only in last stage. return loss, {'lm loss': loss} data = next(data_iterator) tokens = data['tokens'].to(device) attention_mask = data['attention_mask'].to(device) position_ids = data['position_ids'].to(device) labels = data['labels'].to(device) loss_mask = data['loss_mask'].to(device) # output loss output_tensor = model(tokens, position_ids, attention_mask, labels=labels) return output_tensor, partial(loss_func, loss_mask) 注意，前向函数返回的是模型输出的每一个token的loss，和loss函数的偏函数。关于loss的计算，大模型给出了一个解答：\n整个loss计算分为两个阶段： **第一阶段（在模型内部）**： - 模型自己计算基础的token级别loss - 返回形状为 [batch_size, sequence_length] 的tensor **第二阶段（在自定义loss_func中）**： - 对模型返回的loss进行进一步处理 - 应用loss_mask进行过滤 - 计算最终的平均loss ",
+  "wordCount" : "835",
+  "inLanguage": "en",
+  "datePublished": "2025-11-11T00:00:00Z",
+  "dateModified": "2025-11-11T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="My work notes (Alt + H)">My work notes</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
+                    <span>大语言模型 (LLM)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/toolbox/" title="工具箱">
+                    <span>工具箱</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
+                    <span>欢迎来到我的工作空间</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      开始使用 Mindspeed
+    </h1>
+    <div class="post-meta"><span title='2025-11-11 00:00:00 +0000 UTC'>November 11, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>本指南通过<a href="/llm/mindspeed/codes/simple_mcore_train_loop.py">示例代码</a>演示如何使用 Megatron 进行 Mindspeed 训练。</p>
+<h2 id="mindspeed-并行环境初始化">Mindspeed 并行环境初始化<a hidden class="anchor" aria-hidden="true" href="#mindspeed-并行环境初始化">#</a></h2>
+<p>作为一个分布式的大模型训练框架，<code>Mindspeed</code> 在初始化期间需要设置分布式环境。核心初始化代码如下：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">mindspeed.megatron_adaptor</span>  <span class="c1"># 导入适配器以确保 Mindspeed 与 Megatron 兼容</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">megatron.core</span> <span class="kn">import</span> <span class="n">parallel_state</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">initialize_distributed</span><span class="p">(</span><span class="n">tensor_model_parallel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">pipeline_model_parallel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">parallel_state</span><span class="o">.</span><span class="n">destroy_model_parallel</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># 标准 PyTorch 分布式训练设置</span>
+</span></span><span class="line"><span class="cl">    <span class="n">rank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;LOCAL_RANK&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">world_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;WORLD_SIZE&#34;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">rank</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">init_process_group</span><span class="p">(</span><span class="n">world_size</span><span class="o">=</span><span class="n">world_size</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="n">rank</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Megatron 特定的分布式训练初始化</span>
+</span></span><span class="line"><span class="cl">    <span class="n">parallel_state</span><span class="o">.</span><span class="n">initialize_model_parallel</span><span class="p">(</span><span class="n">tensor_model_parallel_size</span><span class="p">,</span> <span class="n">pipeline_model_parallel_size</span><span class="p">)</span>
+</span></span></code></pre></div><p>与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。</p>
+<p>此外，还需要注意，添加代码行<code>import mindspeed.megatron_adaptor</code>来保证Mindspeed对Megatron的API进行兼容。</p>
+<h2 id="mindspeed-模型初始化">Mindspeed 模型初始化<a hidden class="anchor" aria-hidden="true" href="#mindspeed-模型初始化">#</a></h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">megatron.core.transformer.transformer_config</span> <span class="kn">import</span> <span class="n">TransformerConfig</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">megatron.core.models.gpt.gpt_model</span> <span class="kn">import</span> <span class="n">GPTModel</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">model_provider</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Build the model.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">transformer_config</span> <span class="o">=</span> <span class="n">TransformerConfig</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">        <span class="n">hidden_size</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">        <span class="n">num_attention_heads</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">        <span class="n">use_cpu_initialization</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">pipeline_dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">params_dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span> <span class="c1"># 控制模型参数类型</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bf16</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Creating GPT model...&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">gpt_model</span> <span class="o">=</span> <span class="n">GPTModel</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">config</span><span class="o">=</span><span class="n">transformer_config</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">        <span class="n">transformer_layer_spec</span><span class="o">=</span><span class="n">get_gpt_layer_local_spec</span><span class="p">(),</span> 
+</span></span><span class="line"><span class="cl">        <span class="n">vocab_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">        <span class="n">max_sequence_length</span><span class="o">=</span><span class="n">_SEQUENCE_LENGTH</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>    
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="n">gpt_model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;GPT model created.&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">gpt_model</span>
+</span></span></code></pre></div><p>可以看到模型初始化分为两步：</p>
+<ol>
+<li>Transformer的配置参数，包括transformer layer层数，hidden size，attention heads数，模型参数数据类型。</li>
+<li>模型结构，包括transformer layer层，以及vocab size和max sequence length。</li>
+</ol>
+<p>上面这两步基本可以自定义一个Transformer网络的结构了。可以查看模型打印出来的结构：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">GPTModel<span class="o">(</span>
+</span></span><span class="line"><span class="cl">  <span class="o">(</span>embedding<span class="o">)</span>: LanguageModelEmbedding<span class="o">(</span>
+</span></span><span class="line"><span class="cl">    <span class="o">(</span>word_embeddings<span class="o">)</span>: VocabParallelEmbedding<span class="o">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">(</span>position_embeddings<span class="o">)</span>: Embedding<span class="o">(</span>64, 12<span class="o">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">(</span>embedding_dropout<span class="o">)</span>: Dropout<span class="o">(</span><span class="nv">p</span><span class="o">=</span>0.1, <span class="nv">inplace</span><span class="o">=</span>False<span class="o">)</span>
+</span></span><span class="line"><span class="cl">  <span class="o">)</span>
+</span></span><span class="line"><span class="cl">  <span class="o">(</span>decoder<span class="o">)</span>: TransformerBlock<span class="o">(</span>
+</span></span><span class="line"><span class="cl">    <span class="o">(</span>layers<span class="o">)</span>: ModuleList<span class="o">(</span>
+</span></span><span class="line"><span class="cl">      <span class="o">(</span>0-1<span class="o">)</span>: <span class="m">2</span> x TransformerLayer<span class="o">(</span>
+</span></span><span class="line"><span class="cl">        <span class="o">(</span>input_layernorm<span class="o">)</span>: FusedLayerNorm<span class="o">()</span>
+</span></span><span class="line"><span class="cl">        <span class="o">(</span>self_attention<span class="o">)</span>: SelfAttention<span class="o">(</span>
+</span></span><span class="line"><span class="cl">          <span class="o">(</span>core_attention<span class="o">)</span>: DotProductAttention<span class="o">(</span>
+</span></span><span class="line"><span class="cl">            <span class="o">(</span>scale_mask_softmax<span class="o">)</span>: FusedScaleMaskSoftmax<span class="o">()</span>
+</span></span><span class="line"><span class="cl">            <span class="o">(</span>attention_dropout<span class="o">)</span>: Dropout<span class="o">(</span><span class="nv">p</span><span class="o">=</span>0.1, <span class="nv">inplace</span><span class="o">=</span>False<span class="o">)</span>
+</span></span><span class="line"><span class="cl">          <span class="o">)</span>
+</span></span><span class="line"><span class="cl">          <span class="o">(</span>linear_proj<span class="o">)</span>: RowParallelLinear<span class="o">(</span><span class="nv">in_features</span><span class="o">=</span>12, <span class="nv">out_features</span><span class="o">=</span>12, <span class="nv">bias</span><span class="o">=</span>False, <span class="nv">TP</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">          <span class="o">(</span>linear_qkv<span class="o">)</span>: ColumnParallelLinear<span class="o">(</span><span class="nv">in_features</span><span class="o">=</span>12, <span class="nv">out_features</span><span class="o">=</span>36, <span class="nv">bias</span><span class="o">=</span>False, <span class="nv">TP</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">          <span class="o">(</span>q_layernorm<span class="o">)</span>: IdentityOp<span class="o">()</span>
+</span></span><span class="line"><span class="cl">          <span class="o">(</span>k_layernorm<span class="o">)</span>: IdentityOp<span class="o">()</span>
+</span></span><span class="line"><span class="cl">        <span class="o">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">(</span>pre_cross_attn_layernorm<span class="o">)</span>: IdentityOp<span class="o">()</span>
+</span></span><span class="line"><span class="cl">        <span class="o">(</span>cross_attention<span class="o">)</span>: IdentityOp<span class="o">()</span>
+</span></span><span class="line"><span class="cl">        <span class="o">(</span>cross_attn_bda<span class="o">)</span>: IdentityFuncOp<span class="o">()</span>
+</span></span><span class="line"><span class="cl">        <span class="o">(</span>pre_mlp_layernorm<span class="o">)</span>: FusedLayerNorm<span class="o">()</span>
+</span></span><span class="line"><span class="cl">        <span class="o">(</span>mlp<span class="o">)</span>: MLP<span class="o">(</span>
+</span></span><span class="line"><span class="cl">          <span class="o">(</span>linear_fc1<span class="o">)</span>: ColumnParallelLinear<span class="o">(</span><span class="nv">in_features</span><span class="o">=</span>12, <span class="nv">out_features</span><span class="o">=</span>48, <span class="nv">bias</span><span class="o">=</span>False, <span class="nv">TP</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">          <span class="o">(</span>linear_fc2<span class="o">)</span>: RowParallelLinear<span class="o">(</span><span class="nv">in_features</span><span class="o">=</span>48, <span class="nv">out_features</span><span class="o">=</span>12, <span class="nv">bias</span><span class="o">=</span>False, <span class="nv">TP</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">)</span>
+</span></span><span class="line"><span class="cl">      <span class="o">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">(</span>final_layernorm<span class="o">)</span>: FusedLayerNorm<span class="o">()</span>
+</span></span><span class="line"><span class="cl">  <span class="o">)</span>
+</span></span><span class="line"><span class="cl">  <span class="o">(</span>output_layer<span class="o">)</span>: ColumnParallelLinear<span class="o">(</span><span class="nv">in_features</span><span class="o">=</span>12, <span class="nv">out_features</span><span class="o">=</span>100, <span class="nv">bias</span><span class="o">=</span>False, <span class="nv">TP</span><span class="o">=</span>1<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">)</span>
+</span></span></code></pre></div><p>同时，我们也可以打印出模型参数的信息(TP=PP=1)：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">embedding.word_embeddings.weight, <span class="o">[</span>100, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">embedding.position_embeddings.weight, <span class="o">[</span>64, 12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.input_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.input_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_proj.weight, <span class="o">[</span>12, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_proj.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_qkv.weight, <span class="o">[</span>36, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_qkv.bias, <span class="o">[</span>36<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.pre_mlp_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.pre_mlp_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc1.weight, <span class="o">[</span>48, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc1.bias, <span class="o">[</span>48<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc2.weight, <span class="o">[</span>12, 48<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc2.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.input_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.input_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_proj.weight, <span class="o">[</span>12, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_proj.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_qkv.weight, <span class="o">[</span>36, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_qkv.bias, <span class="o">[</span>36<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.pre_mlp_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.pre_mlp_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc1.weight, <span class="o">[</span>48, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc1.bias, <span class="o">[</span>48<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc2.weight, <span class="o">[</span>12, 48<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc2.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.final_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.final_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">output_layer.weight, <span class="o">[</span>100, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Summary:
+</span></span><span class="line"><span class="cl">Unique dtypes in model: <span class="o">{</span>torch.float16, torch.float32<span class="o">}</span>
+</span></span><span class="line"><span class="cl">Unique devices in model: <span class="o">{</span>device<span class="o">(</span><span class="nv">type</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="o">)}</span>
+</span></span><span class="line"><span class="cl">Total parameters: <span class="m">6960</span>
+</span></span></code></pre></div><p>注意观察我们设置的参数与上面参数维度的对应关系：</p>
+<ol>
+<li>vocab_size: 100</li>
+<li>hidden_size: 12</li>
+<li>sequence_length: 64</li>
+<li>num_attention_heads: 4</li>
+</ol>
+<p>还可以发现，虽然参数类型设置的是float16，但是模型参数并不都是float16，有部分网络参数仍然为float32，特别是layernorm的网络层。</p>
+<p>我们也可以打印出其它并行配置下模型参数的信息(TP=2, PP=1)：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">embedding.word_embeddings.weight, <span class="o">[</span>50, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">embedding.position_embeddings.weight, <span class="o">[</span>64, 12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.input_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.input_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_proj.weight, <span class="o">[</span>12, 6<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_proj.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_qkv.weight, <span class="o">[</span>18, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.self_attention.linear_qkv.bias, <span class="o">[</span>18<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.pre_mlp_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.pre_mlp_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc1.weight, <span class="o">[</span>24, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc1.bias, <span class="o">[</span>24<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc2.weight, <span class="o">[</span>12, 24<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.0.mlp.linear_fc2.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.input_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.input_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_proj.weight, <span class="o">[</span>12, 6<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_proj.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_qkv.weight, <span class="o">[</span>18, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.self_attention.linear_qkv.bias, <span class="o">[</span>18<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.pre_mlp_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.pre_mlp_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc1.weight, <span class="o">[</span>24, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc1.bias, <span class="o">[</span>24<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc2.weight, <span class="o">[</span>12, 24<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.layers.1.mlp.linear_fc2.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">decoder.final_layernorm.weight, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">decoder.final_layernorm.bias, <span class="o">[</span>12<span class="o">]</span>, torch.float32, cpu
+</span></span><span class="line"><span class="cl">output_layer.weight, <span class="o">[</span>50, 12<span class="o">]</span>, torch.float16, cpu
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Summary:
+</span></span><span class="line"><span class="cl">Unique dtypes in model: <span class="o">{</span>torch.float32, torch.float16<span class="o">}</span>
+</span></span><span class="line"><span class="cl">Unique devices in model: <span class="o">{</span>device<span class="o">(</span><span class="nv">type</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="o">)}</span>
+</span></span><span class="line"><span class="cl">Total parameters: <span class="m">3948</span>
+</span></span></code></pre></div><p>可以看到，有的参数的维度减半了！</p>
+<p>另外，我们注意到在这里，我们设置<code>bf16=True</code>，去检查模型的参数，或者debug模型中间层的输入输出，其类型依然是float32。这是因为我们这里没有调用megatron.training.get_model函数，而是直接调用了megatron.model.GPTModel，这里GPTModel没有对模型的数值类型做任何的处理，仅仅是通过para_dtype初始化了模型参数。而get_model函数里面，则会根据bf16参数，对模型参数进行类型转换：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">megatron.core.enums</span> <span class="kn">import</span> <span class="n">ModelType</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get_model</span><span class="p">(</span><span class="n">model_provider_func</span><span class="p">,</span> <span class="n">model_type</span><span class="o">=</span><span class="n">ModelType</span><span class="o">.</span><span class="n">encoder_or_decoder</span><span class="p">,</span> <span class="n">wrap_with_ddp</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="o">...</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># Fp16 conversion.</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">fp16</span> <span class="ow">or</span> <span class="n">args</span><span class="o">.</span><span class="n">bf16</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">config</span> <span class="o">=</span> <span class="n">get_model_config</span><span class="p">(</span><span class="n">model</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">        <span class="n">model</span> <span class="o">=</span> <span class="p">[</span><span class="n">Float16Module</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">model_module</span><span class="p">)</span> <span class="k">for</span> <span class="n">model_module</span> <span class="ow">in</span> <span class="n">model</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="o">...</span>
+</span></span></code></pre></div><p>这里，我们还可以查看Float16Module的实现，该模块将模型转换为半精度浮点数。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Float16Module</span><span class="p">(</span><span class="n">MegatronModule</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Float 16 Module.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Attributes:
+</span></span></span><span class="line"><span class="cl"><span class="s2">        config (TransformerConfig): Transformer config
+</span></span></span><span class="line"><span class="cl"><span class="s2">        fp16 (bool) : Specifies if the model runs in fp16 mode
+</span></span></span><span class="line"><span class="cl"><span class="s2">        bf16 (bool) : Specifies if the model runs in bf16 mode
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Args:
+</span></span></span><span class="line"><span class="cl"><span class="s2">        config (TransformerConfig): The transformer config used to initalize the model
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">TransformerConfig</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">(</span><span class="n">Float16Module</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">fp16</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">fp16</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">bf16</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">bf16</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fp16</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="s1">&#39;module&#39;</span><span class="p">,</span> <span class="n">module</span><span class="o">.</span><span class="n">half</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="k">def</span> <span class="nf">float16_convertor</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="n">val</span><span class="o">.</span><span class="n">half</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">bf16</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">add_module</span><span class="p">(</span><span class="s1">&#39;module&#39;</span><span class="p">,</span> <span class="n">module</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="k">def</span> <span class="nf">float16_convertor</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="n">val</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;Either config.fp16 or config.bf16 should be True.&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">float16_convertor</span> <span class="o">=</span> <span class="n">float16_convertor</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">set_input_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">set_input_tensor</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">parallel_state</span><span class="o">.</span><span class="n">is_pipeline_first_stage</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">            <span class="n">inputs</span> <span class="o">=</span> <span class="n">fp32_to_float16</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">float16_convertor</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="o">*</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">parallel_state</span><span class="o">.</span><span class="n">is_pipeline_last_stage</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">            <span class="n">outputs</span> <span class="o">=</span> <span class="n">float16_to_fp32</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">outputs</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(</span><span class="n">destination</span><span class="o">=</span><span class="n">destination</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="n">keep_vars</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">state_dict_for_save_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Retrieve state_dict from the module being wrapped.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">state_dict_for_save_checkpoint</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="n">keep_vars</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">sharded_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Retrieve sharded_state_dict from the module being wrapped.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">sharded_state_dict</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">state_dict</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="n">strict</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="mindspeed-训练主循环入口">MindSpeed 训练主循环入口<a hidden class="anchor" aria-hidden="true" href="#mindspeed-训练主循环入口">#</a></h2>
+<p>在基于Megatron的模型训练中，我们经常看到这样的训练循环：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">megatron.core.pipeline_parallel.schedules</span> <span class="kn">import</span> <span class="n">get_forward_backward_func</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">optim</span> <span class="o">=</span> <span class="n">Adam</span><span class="p">(</span><span class="n">gpt_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl"><span class="n">forward_backward_func</span> <span class="o">=</span> <span class="n">get_forward_backward_func</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Starting iteration </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">/5...&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">optim</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Gradients zeroed.&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">losses_reduced</span> <span class="o">=</span> <span class="n">forward_backward_func</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">forward_step_func</span><span class="o">=</span><span class="n">forward_step_func</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">data_iterator</span><span class="o">=</span><span class="n">train_iterator</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">model</span><span class="o">=</span><span class="n">gpt_model</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">num_microbatches</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">seq_length</span><span class="o">=</span><span class="n">_SEQUENCE_LENGTH</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">micro_batch_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">decoder_seq_length</span><span class="o">=</span><span class="n">_SEQUENCE_LENGTH</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">forward_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Forward-backward pass completed with losses: </span><span class="si">{</span><span class="n">losses_reduced</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">optim</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span></span></code></pre></div><p>可以看到，<code>forward_backward_func</code>是<code>megatron</code>内置的包装好的函数，其内置了前向和反向的计算过程，我们需要做的就是传入自定义的<code>forward_step_func</code>和<code>data_iterator</code>和<code>model</code>。输出则是reduced的loss，其shape为[bs, seq_len]，即每一个token的loss。</p>
+<p>自定义的前向函数，主要包括了对输入数据的简单预处理和loss函数的定义：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">forward_step_func</span><span class="p">(</span><span class="n">data_iterator</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    自定义前向函数
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Notes:
+</span></span></span><span class="line"><span class="cl"><span class="s2">        1. model(tokens, position_ids, attention_mask, labels=labels)返回的是loss，而不是logits
+</span></span></span><span class="line"><span class="cl"><span class="s2">        2. 要返回logits，则仅需要拿掉labels参数即可
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">loss_func</span><span class="p">(</span><span class="n">loss_mask</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">output_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">losses</span> <span class="o">=</span> <span class="n">output_tensor</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="n">loss_mask</span> <span class="o">=</span> <span class="n">loss_mask</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="n">loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">losses</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">loss_mask</span><span class="p">)</span> <span class="o">/</span> <span class="n">loss_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># If you have data parallel reduce loss across data parallel groups.</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># If pipeline parallel, loss computation is done only in last stage.</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;lm loss&#39;</span><span class="p">:</span> <span class="n">loss</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">data</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">data_iterator</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tokens</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;tokens&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">attention_mask</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;attention_mask&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">position_ids</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;position_ids&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">labels</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">loss_mask</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;loss_mask&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># output loss</span>
+</span></span><span class="line"><span class="cl">    <span class="n">output_tensor</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">position_ids</span><span class="p">,</span> <span class="n">attention_mask</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                          <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">output_tensor</span><span class="p">,</span> <span class="n">partial</span><span class="p">(</span><span class="n">loss_func</span><span class="p">,</span> <span class="n">loss_mask</span><span class="p">)</span>
+</span></span></code></pre></div><p>注意，前向函数返回的是模型输出的每一个token的loss，和loss函数的偏函数。关于loss的计算，大模型给出了一个解答：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-markdown" data-lang="markdown"><span class="line"><span class="cl">整个loss计算分为两个阶段：
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="gs">**第一阶段（在模型内部）**</span>：
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">-</span> 模型自己计算基础的token级别loss
+</span></span><span class="line"><span class="cl"><span class="k">-</span> 返回形状为 [batch_size, sequence_length] 的tensor
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="gs">**第二阶段（在自定义loss_func中）**</span>：
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">-</span> 对模型返回的loss进行进一步处理
+</span></span><span class="line"><span class="cl"><span class="k">-</span> 应用loss_mask进行过滤
+</span></span><span class="line"><span class="cl"><span class="k">-</span> 计算最终的平均loss
+</span></span></code></pre></div>
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2025 <a href="http://localhost:1313/">My work notes</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

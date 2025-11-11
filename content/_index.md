@@ -12,8 +12,8 @@ menu: main
   </p>
 
 <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
-  {{< button href="/rl/" text="RL" icon="🧠" >}}
-  {{< button href="/llm/" text="LLM" icon="💬" >}}
+  {{< button href="/RL/" text="RL" icon="🧠" >}}
+  {{< button href="/LLM/" text="LLM" icon="💬" >}}
   {{< button href="/toolbox/" text="工具箱" icon="🧰" >}}
 </div>
     
