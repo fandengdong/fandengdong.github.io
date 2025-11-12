@@ -5,6 +5,13 @@ date: 2025-11-11
 
 本指南通过[示例代码](/llm/mindspeed/codes/simple_mcore_train_loop.py)演示如何使用 Megatron 进行 Mindspeed 训练。
 
+演示代码版本信息：
+
+1. mindspeed commit id: 89f4632d
+2. megatron branch: core_v0.12.1
+3. CANN: 8.2.RC1
+4. torch: 2.5.1
+
 ## Mindspeed 并行环境初始化
 
 作为一个分布式的大模型训练框架，`Mindspeed` 在初始化期间需要设置分布式环境。核心初始化代码如下：
