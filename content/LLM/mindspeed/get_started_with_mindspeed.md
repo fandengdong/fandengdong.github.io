@@ -216,7 +216,7 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
     ...
 ```
 
-这里，我们还可以查看Float16Module的实现，该模块将模型转换为半精度浮点数。
+这里，我们还可以查看Float16Module的实现，该模块在计算前向的时候，在forward函数中临时将模型转换为半精度浮点数，算完后，又转换为fp32精度。
 
 ```python
 class Float16Module(MegatronModule):
@@ -254,9 +254,6 @@ class Float16Module(MegatronModule):
 
         self.float16_convertor = float16_convertor
 
-    def set_input_tensor(self, input_tensor):
-        return self.module.set_input_tensor(input_tensor)
-
     def forward(self, *inputs, **kwargs):
         if parallel_state.is_pipeline_first_stage():
             inputs = fp32_to_float16(inputs, self.float16_convertor)
@@ -264,20 +261,7 @@ class Float16Module(MegatronModule):
         if parallel_state.is_pipeline_last_stage():
             outputs = float16_to_fp32(outputs)
         return outputs
-
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
-        return self.module.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
-
-    def state_dict_for_save_checkpoint(self, prefix='', keep_vars=False):
-        """Retrieve state_dict from the module being wrapped."""
-        return self.module.state_dict_for_save_checkpoint(prefix=prefix, keep_vars=keep_vars)
-
-    def sharded_state_dict(self, prefix='', *args, **kwargs):
-        """Retrieve sharded_state_dict from the module being wrapped."""
-        return self.module.sharded_state_dict(prefix, *args, **kwargs)
-
-    def load_state_dict(self, state_dict, strict=True):
-        self.module.load_state_dict(state_dict, strict=strict)
+    ...
 
 ```
 
@@ -307,9 +291,9 @@ for i in range(5):
     optim.step()
 ```
 
-可以看到，`forward_backward_func`是`megatron`内置的包装好的函数，其内置了前向和反向的计算过程，我们需要做的就是传入自定义的`forward_step_func`和`data_iterator`和`model`。输出则是reduced的loss，其shape为[bs, seq_len]，即每一个token的loss。
+`forward_backward_func`是`megatron`内置的包装好的函数，其内置了前向和反向的计算过程，我们需要做的就是传入自定义的`forward_step_func`和`data_iterator`和`model`。输出则是reduced的loss，其shape为[bs, seq_len]，即每一个token的loss。
 
-自定义的前向函数，主要包括了对输入数据的简单预处理和loss函数的定义：
+自定义的前向函数`forward_backward_func`，主要包括了对输入数据的简单预处理和loss函数的定义：
 
 ```python
 def forward_step_func(data_iterator, model):
