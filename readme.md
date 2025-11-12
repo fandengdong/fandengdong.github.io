@@ -8,6 +8,6 @@
 
 ### 导航
 
-- [RL](/rl/) 🧠
-- [LLM](/llm/) 💬
-- [工具箱](/toolbox/) 🧰
+- [RL](https://fandengdong.github.io/rl/) 🧠
+- [LLM](https://fandengdong.github.io/llm/) 💬
+- [工具箱](https://fandengdong.github.io/toolbox/) 🧰
