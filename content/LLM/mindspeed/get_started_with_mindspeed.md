@@ -3,7 +3,7 @@ title: "开始使用 Mindspeed"
 date: 2025-11-11
 ---
 
-本指南通过[示例代码](/llm/mindspeed/codes/simple_mcore_train_loop.py)演示如何使用 Megatron 进行 Mindspeed 训练。
+本指南通过[示例代码](https://github.com/fandengdong/fandengdong.github.io/blob/main/content/LLM/mindspeed/codes/simple_mcore_train_loop.py)演示如何使用 Megatron 进行 Mindspeed 训练。
 
 演示代码版本信息：
 
