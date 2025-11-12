@@ -1,6 +1,6 @@
 ---
 title: "Mindspeed"
-description: "Notes on Mindspeed, a large model acceleration library for Huawei Ascend devices"
+description: "关于Mindspeed的笔记，这是一个为华为昇腾设备设计的大模型加速库"
 ---
 
-This section contains notes and resources about Mindspeed, a high-performance acceleration library specifically designed for large language models and vision-language models on Huawei Ascend devices.
+本节包含关于Mindspeed的笔记和资源，Mindspeed是一个高性能加速库，专门为华为昇腾设备上的大语言模型和视觉-语言模型设计。

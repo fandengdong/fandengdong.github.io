@@ -1,5 +1,5 @@
 ---
-title: "工具箱"
+title: "工具箱 (toolbox)"
 description: "提升效率的开发者工具集合"
 menu: main
 weight: 2
