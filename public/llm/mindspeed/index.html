@@ -7,7 +7,7 @@
 <meta name="robots" content="index, follow">
 <title>Mindspeed | My work notes</title>
 <meta name="keywords" content="">
-<meta name="description" content="Notes on Mindspeed, a large model acceleration library for Huawei Ascend devices">
+<meta name="description" content="关于Mindspeed的笔记，这是一个为华为昇腾设备设计的大模型加速库">
 <meta name="author" content="fandengdong">
 <link rel="canonical" href="http://localhost:1313/llm/mindspeed/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
@@ -74,12 +74,12 @@
 </script><meta property="og:url" content="http://localhost:1313/llm/mindspeed/">
   <meta property="og:site_name" content="My work notes">
   <meta property="og:title" content="Mindspeed">
-  <meta property="og:description" content="Notes on Mindspeed, a large model acceleration library for Huawei Ascend devices">
+  <meta property="og:description" content="关于Mindspeed的笔记，这是一个为华为昇腾设备设计的大模型加速库">
   <meta property="og:locale" content="zh-CN">
   <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Mindspeed">
-<meta name="twitter:description" content="Notes on Mindspeed, a large model acceleration library for Huawei Ascend devices">
+<meta name="twitter:description" content="关于Mindspeed的笔记，这是一个为华为昇腾设备设计的大模型加速库">
 
 
 <script type="application/ld+json">
@@ -138,8 +138,13 @@
                 </a>
             </li>
             <li>
-                <a href="http://localhost:1313/toolbox/" title="工具箱">
-                    <span>工具箱</span>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
                 </a>
             </li>
             <li>
@@ -156,29 +161,29 @@
     Mindspeed
   </h1>
   <div class="post-description">
-    Notes on Mindspeed, a large model acceleration library for Huawei Ascend devices
+    关于Mindspeed的笔记，这是一个为华为昇腾设备设计的大模型加速库
   </div>
 </header>
-<div class="post-content"><p>This section contains notes and resources about Mindspeed, a high-performance acceleration library specifically designed for large language models and vision-language models on Huawei Ascend devices.</p>
+<div class="post-content"><p>本节包含关于Mindspeed的笔记和资源，Mindspeed是一个高性能加速库，专门为华为昇腾设备上的大语言模型和视觉-语言模型设计。</p>
 
 
 </div>
 
 <article class="post-entry"> 
   <header class="entry-header">
-    <h2 class="entry-hint-parent">开始使用 Mindspeed
+    <h2 class="entry-hint-parent">开始使用 Mindspeed 进行大模型训练
     </h2>
   </header>
   <div class="entry-content">
-    <p>本指南通过示例代码演示如何使用 Megatron 进行 Mindspeed 训练。
-Mindspeed 并行环境初始化 作为一个分布式的大模型训练框架，Mindspeed 在初始化期间需要设置分布式环境。核心初始化代码如下：
-import torch import mindspeed.megatron_adaptor # 导入适配器以确保 Mindspeed 与 Megatron 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式训练设置 rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0)) world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # Megatron 特定的分布式训练初始化 parallel_state.initialize_model_parallel(tensor_model_parallel_size, pipeline_model_parallel_size) 与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。
-此外，还需要注意，添加代码行import mindspeed.megatron_adaptor来保证Mindspeed对Megatron的API进行兼容。
-Mindspeed 模型初始化 from megatron.core.transformer.transformer_config import TransformerConfig from megatron.core.models.gpt.gpt_model import GPTModel def model_provider(): &#34;&#34;&#34; Build the model. &#34;&#34;&#34; transformer_config = TransformerConfig( num_layers=2, hidden_size=12, num_attention_heads=4, use_cpu_initialization=True, pipeline_dtype=torch.float32, params_dtype=torch.float16, # 控制模型参数类型 bf16=True, # 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果 ) print(&#34;Creating GPT model...&#34;) gpt_model = GPTModel( config=transformer_config, transformer_layer_spec=get_gpt_layer_local_spec(), vocab_size=100, max_sequence_length=_SEQUENCE_LENGTH, ) print(gpt_model) print(&#34;GPT model created.&#34;) return gpt_model 可以看到模型初始化分为两步：
+    <p>本文通过一个完整示例代码演示如何使用 Mindspeed 框架进行分布式大模型训练。
+环境版本信息
+Mindspeed commit ID: 89f4632d Megatron 分支: core_v0.12.1 CANN: 8.2.RC1 PyTorch: 2.5.1 1. 初始化分布式并行环境 Mindspeed 基于 Megatron 构建，支持张量并行（TP）和流水线并行（PP）。在训练前，必须正确初始化分布式环境：
+import os import torch import mindspeed.megatron_adaptor # 关键：确保 Mindspeed 与 Megatron API 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): # 清理已有状态（防止重复初始化） parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式设置 rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0)) world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # 初始化 Megatron 并行状态 parallel_state.initialize_model_parallel( tensor_model_parallel_size=tensor_model_parallel_size, pipeline_model_parallel_size=pipeline_model_parallel_size ) 关键点说明： 必须显式导入 mindspeed.megatron_adaptor，以启用兼容层。 除了标准的 torch.distributed.init_process_group，还需调用 parallel_state.initialize_model_parallel 来激活 TP/PP 支持。 需根据实际训练配置传入 tensor_model_parallel_size 和 pipeline_model_parallel_size。
+Mindspeed 模型初始化 Mindspeed 使用 Megatron Core 的模块化设计构建模型。以下是一个最小 GPT 模型的构建示例：
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-11-11 00:00:00 +0000 UTC'>November 11, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to 开始使用 Mindspeed" href="http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/"></a>
+  <a class="entry-link" aria-label="post link to 开始使用 Mindspeed 进行大模型训练" href="http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/"></a>
 </article>
 
 <article class="post-entry"> 
@@ -187,9 +192,11 @@ Mindspeed 模型初始化 from megatron.core.transformer.transformer_config impo
     </h2>
   </header>
   <div class="entry-content">
-    <p>The core purpose of MindSpeed is to efficiently adapt and accelerate large models based on Megatron-LM for training and inference on Huawei Ascend AI hardware. Its key functionalities include:
-Framework Compatibility: Adapting native Megatron-LM code to the Ascend NPU architecture to ensure correct functionality. Performance Optimization: Enhancing training and inference efficiency through techniques such as operator fusion, memory optimization, and communication acceleration. Multi-Level Acceleration: Offering configurable optimization tiers (e.g., basic compatibility, affinity enhancement, full acceleration) that users can enable based on their needs. Ecosystem Integration: Deep integration with Ascend software stacks like CANN and MindSpore for seamless hardware-software co-optimization. In short, MindSpeed enables Megatron-based large models to run correctly, run fast, and run reliably on Ascend devices.
-...</p>
+    <p>MindSpeed的核心目的是高效地适配和加速基于Megatron-LM的大模型，使其能够在华为昇腾AI硬件上进行训练和推理。其主要功能包括：
+框架兼容性：将原生Megatron-LM代码适配到昇腾NPU架构，确保功能正确性。 性能优化：通过算子融合、内存优化和通信加速等技术提升训练和推理效率。 多级加速：提供可配置的优化层级（如基础兼容性、亲和性增强、全面加速），用户可根据需求启用。 生态集成：与CANN和MindSpore等昇腾软件栈深度集成，实现无缝的软硬件协同优化。 简而言之，MindSpeed使基于Megatron的大模型能够在昇腾设备上正确运行、快速运行和可靠运行。
+一行代码适配Megatron代码 import torch import mindspeed.megatron_adaptor # 新增代码行 加速特性层级说明 MindSpeed Core加速特性分为三个层级。用户可以通过在启动脚本中设置--optimization-level {level}参数来根据实际需求选择要启用的优化级别。该参数支持以下配置：
+等级 等级名称 描述 0 基础功能兼容性 提供Megatron-LM框架与NPU的基础功能兼容性。 1 亲和性增强 🔥 在L0基础上，启用部分融合算子和昇腾友好的计算重写。 2 加速特性增强 🔥🔥 默认值。在L0和L1基础上启用更丰富的加速特性，加速特性通常通过特定参数启用。详情请参阅&#34;特性介绍&#34;部分。 MindSpeed Core生态系统 在MindSpeed Core加速库的基础上，还提供了以下专业库：
+大语言模型库: MindSpeed LLM 多模态模型库: MindSpeed MM 强化学习加速库: MindSpeed RL </p>
   </div>
   <footer class="entry-footer"><span title='2025-11-10 00:00:00 +0000 UTC'>November 10, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
   <a class="entry-link" aria-label="post link to Mindspeed基本介绍" href="http://localhost:1313/llm/mindspeed/introduction_with_mindspeed/"></a>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Mindspeed-LLM on My work notes</title>
+    <link>http://localhost:1313/llm/mindspeed_llm/</link>
+    <description>Recent content in Mindspeed-LLM on My work notes</description>
+    <generator>Hugo -- 0.152.2</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Fri, 14 Nov 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/llm/mindspeed_llm/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>使用 Mindspeed-LLM进行预训练</title>
+      <link>http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/</link>
+      <pubDate>Fri, 14 Nov 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/</guid>
+      <description>&lt;p&gt;本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。&lt;/p&gt;
+&lt;h2 id=&#34;准备数据&#34;&gt;准备数据&lt;/h2&gt;
+&lt;p&gt;准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字&lt;code&gt;prompt&lt;/code&gt;和&lt;code&gt;response&lt;/code&gt;，其中&lt;code&gt;prompt&lt;/code&gt;为输入，&lt;code&gt;response&lt;/code&gt;为输出。&lt;/p&gt;
+&lt;p&gt;注意：如果提供的jsonl文件里面没有包含&lt;code&gt;chat template&lt;/code&gt;，那么在转换数据的时候要添加&lt;code&gt;prompt-type&lt;/code&gt;参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code class=&#34;language-jsonl&#34; data-lang=&#34;jsonl&#34;&gt;{&amp;#34;prompt&amp;#34;:&amp;#34;&amp;lt;|im_start|&amp;gt;system\nYou are a helpful assistant. To answer the user\&amp;#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &amp;lt;think&amp;gt; &amp;lt;\/think&amp;gt; and &amp;lt;answer&amp;gt; &amp;lt;\/answer&amp;gt; tags, respectively, i.e., &amp;lt;think&amp;gt; reasoning process here &amp;lt;\/think&amp;gt; &amp;lt;answer&amp;gt; answer here &amp;lt;\/answer&amp;gt;.&amp;lt;|im_end|&amp;gt;\n&amp;lt;|im_start|&amp;gt;user\nLet $\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\overline{IA}\\perp\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\cdot AC$.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&amp;lt;|im_end|&amp;gt;\n&amp;lt;|im_start|&amp;gt;assistant\n&amp;#34;,&amp;#34;response&amp;#34;:&amp;#34;&amp;lt;think&amp;gt;\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....&amp;#34;}
+{&amp;#34;prompt&amp;#34;:&amp;#34;&amp;lt;|im_start|&amp;gt;system\nYou are a helpful assistant. To answer the user\&amp;#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &amp;lt;think&amp;gt; &amp;lt;\/think&amp;gt; and &amp;lt;answer&amp;gt; &amp;lt;\/answer&amp;gt; tags, respectively, i.e., &amp;lt;think&amp;gt; reasoning process here &amp;lt;\/think&amp;gt; &amp;lt;answer&amp;gt; answer here &amp;lt;\/answer&amp;gt;.&amp;lt;|im_end|&amp;gt;\n&amp;lt;|im_start|&amp;gt;user\nLet \\(b\\ge 2\\) be an integer. Call a positive integer \\(n\\) \\(b\\text-\\textit{eautiful}\\) if it has exactly two digits when expressed in base \\(b\\)  and these two digits sum to \\(\\sqrt n\\). For example, \\(81\\) is \\(13\\text-\\textit{eautiful}\\) because \\(81  = \\underline{6} \\ \\underline{3}_{13} \\) and \\(6 + 3 =  \\sqrt{81}\\). Find the least integer \\(b\\ge 2\\) for which there are more than ten \\(b\\text-\\textit{eautiful}\\) integers.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&amp;lt;|im_end|&amp;gt;\n&amp;lt;|im_start|&amp;gt;assistant\n&amp;#34;,&amp;#34;response&amp;#34;:&amp;#34;&amp;lt;think&amp;gt;\nThe problem defines a \&amp;#34;b-beautiful\&amp;#34; number as a positive integer...&amp;#34;}
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

@@ -5,51 +5,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta name="robots" content="index, follow">
-<title>论文阅读：Attention Is All You Need | My work notes</title>
+<title>Mindspeed-LLM | My work notes</title>
 <meta name="keywords" content="">
-<meta name="description" content="本文简要记录对经典论文《Attention Is All You Need》的理解。
-数学公式示例
-Transformer 中的缩放点积注意力公式：
-$$
-\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-$$
-行内公式：$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$。
-表格示例
-
-  
-      
-          Layer
-          Output Size
-          Params
-      
-  
-  
-      
-          Embedding
-          512
-          1M
-      
-      
-          Encoder
-          512
-          60M
-      
-      
-          Decoder
-          512
-          60M
-      
-  
-
-插入图片
-将图片放在同目录下，同目录下面必须有一个index.md文件，然后引用：
-
-
-
-提示：确保文件名称为index.md,_index.md文件也不行。
-">
+<meta name="description" content="关于Mindspeed-LLM的笔记，这是一个为华为昇腾设备设计的大语言模型的预训练和后训练库">
 <meta name="author" content="fandengdong">
-<link rel="canonical" href="http://localhost:1313/toolbox/hugo/demo_math_and_image/">
+<link rel="canonical" href="http://localhost:1313/llm/mindspeed_llm/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
 <link rel="icon" href="http://localhost:1313/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
@@ -58,7 +18,8 @@ $$
 <link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
 <meta name="theme-color" content="#2e2e33">
 <meta name="msapplication-TileColor" content="#2e2e33">
-<link rel="alternate" hreflang="en" href="http://localhost:1313/toolbox/hugo/demo_math_and_image/">
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/llm/mindspeed_llm/index.xml" title="rss">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/mindspeed_llm/">
 <noscript>
     <style>
         #theme-toggle,
@@ -110,63 +71,15 @@ $$
         document.querySelector("html").dataset.theme = 'light';
     }
 
-</script><meta property="og:url" content="http://localhost:1313/toolbox/hugo/demo_math_and_image/">
+</script><meta property="og:url" content="http://localhost:1313/llm/mindspeed_llm/">
   <meta property="og:site_name" content="My work notes">
-  <meta property="og:title" content="论文阅读：Attention Is All You Need">
-  <meta property="og:description" content="本文简要记录对经典论文《Attention Is All You Need》的理解。
-数学公式示例 Transformer 中的缩放点积注意力公式：
-$$ \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V $$
-行内公式：$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$。
-表格示例 Layer Output Size Params Embedding 512 1M Encoder 512 60M Decoder 512 60M 插入图片 将图片放在同目录下，同目录下面必须有一个index.md文件，然后引用：
-提示：确保文件名称为index.md,_index.md文件也不行。">
+  <meta property="og:title" content="Mindspeed-LLM">
+  <meta property="og:description" content="关于Mindspeed-LLM的笔记，这是一个为华为昇腾设备设计的大语言模型的预训练和后训练库">
   <meta property="og:locale" content="zh-CN">
-  <meta property="og:type" content="article">
-    <meta property="article:section" content="toolbox">
-    <meta property="article:published_time" content="2025-11-06T18:00:00+08:00">
-    <meta property="article:modified_time" content="2025-11-06T18:00:00+08:00">
+  <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="论文阅读：Attention Is All You Need">
-<meta name="twitter:description" content="本文简要记录对经典论文《Attention Is All You Need》的理解。
-数学公式示例
-Transformer 中的缩放点积注意力公式：
-$$
-\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-$$
-行内公式：$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$。
-表格示例
-
-  
-      
-          Layer
-          Output Size
-          Params
-      
-  
-  
-      
-          Embedding
-          512
-          1M
-      
-      
-          Encoder
-          512
-          60M
-      
-      
-          Decoder
-          512
-          60M
-      
-  
-
-插入图片
-将图片放在同目录下，同目录下面必须有一个index.md文件，然后引用：
-
-
-
-提示：确保文件名称为index.md,_index.md文件也不行。
-">
+<meta name="twitter:title" content="Mindspeed-LLM">
+<meta name="twitter:description" content="关于Mindspeed-LLM的笔记，这是一个为华为昇腾设备设计的大语言模型的预训练和后训练库">
 
 
 <script type="application/ld+json">
@@ -177,59 +90,20 @@ $$
     {
       "@type": "ListItem",
       "position":  1 ,
-      "name": "工具箱 (toolbox)",
-      "item": "http://localhost:1313/toolbox/"
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
     }, 
     {
       "@type": "ListItem",
       "position":  2 ,
-      "name": "Hugo 静态站点生成器",
-      "item": "http://localhost:1313/toolbox/hugo/"
-    }, 
-    {
-      "@type": "ListItem",
-      "position":  3 ,
-      "name": "论文阅读：Attention Is All You Need",
-      "item": "http://localhost:1313/toolbox/hugo/demo_math_and_image/"
+      "name": "Mindspeed-LLM",
+      "item": "http://localhost:1313/llm/mindspeed_llm/"
     }
   ]
 }
 </script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BlogPosting",
-  "headline": "论文阅读：Attention Is All You Need",
-  "name": "论文阅读：Attention Is All You Need",
-  "description": "本文简要记录对经典论文《Attention Is All You Need》的理解。\n数学公式示例 Transformer 中的缩放点积注意力公式：\n$$ \\text{Attention}(Q, K, V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V $$\n行内公式：$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$。\n表格示例 Layer Output Size Params Embedding 512 1M Encoder 512 60M Decoder 512 60M 插入图片 将图片放在同目录下，同目录下面必须有一个index.md文件，然后引用：\n提示：确保文件名称为index.md,_index.md文件也不行。\n",
-  "keywords": [
-    
-  ],
-  "articleBody": "本文简要记录对经典论文《Attention Is All You Need》的理解。\n数学公式示例 Transformer 中的缩放点积注意力公式：\n$$ \\text{Attention}(Q, K, V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V $$\n行内公式：$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$。\n表格示例 Layer Output Size Params Embedding 512 1M Encoder 512 60M Decoder 512 60M 插入图片 将图片放在同目录下，同目录下面必须有一个index.md文件，然后引用：\n提示：确保文件名称为index.md,_index.md文件也不行。\n",
-  "wordCount" : "39",
-  "inLanguage": "en",
-  "datePublished": "2025-11-06T18:00:00+08:00",
-  "dateModified": "2025-11-06T18:00:00+08:00",
-  "author":{
-    "@type": "Person",
-    "name": "fandengdong"
-  },
-  "mainEntityOfPage": {
-    "@type": "WebPage",
-    "@id": "http://localhost:1313/toolbox/hugo/demo_math_and_image/"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "My work notes",
-    "logo": {
-      "@type": "ImageObject",
-      "url": "http://localhost:1313/favicon.ico"
-    }
-  }
-}
-</script>
 </head>
-<body id="top">
+<body class="list" id="top">
     <header class="header">
     <nav class="nav">
         <div class="logo">
@@ -281,82 +155,34 @@ $$
         </ul>
     </nav>
 </header>
-<main class="main">
+<main class="main"> 
+<header class="page-header">
+  <h1>
+    Mindspeed-LLM
+  </h1>
+  <div class="post-description">
+    关于Mindspeed-LLM的笔记，这是一个为华为昇腾设备设计的大语言模型的预训练和后训练库
+  </div>
+</header>
+<div class="post-content"><p>本节包含关于Mindspeed-LLM的笔记和资源，Mindspeed-LLM是一个高性能加速库，专门为华为昇腾设备上的大语言模型设计的pretrain和posttrain库。</p>
 
-<article class="post-single">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-        renderMathInElement(document.body, {
-            delimiters: [
-            { left: "$$", right: "$$", display: true },
-            { left: "$", right: "$", display: false }
-            ],
-            trust: true,
-            throwOnError: false
-        });
-        });
-    </script>
-  <header class="post-header">
-    
-    <h1 class="post-title entry-hint-parent">
-      论文阅读：Attention Is All You Need
-    </h1>
-    <div class="post-meta"><span title='2025-11-06 18:00:00 +0800 CST'>November 6, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
 
 </div>
-  </header> 
-  <div class="post-content"><p>本文简要记录对经典论文《Attention Is All You Need》的理解。</p>
-<h2 id="数学公式示例">数学公式示例<a hidden class="anchor" aria-hidden="true" href="#数学公式示例">#</a></h2>
-<p>Transformer 中的缩放点积注意力公式：</p>
-<p>$$
-\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-$$</p>
-<p>行内公式：$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$。</p>
-<h2 id="表格示例">表格示例<a hidden class="anchor" aria-hidden="true" href="#表格示例">#</a></h2>
-<table>
-  <thead>
-      <tr>
-          <th>Layer</th>
-          <th>Output Size</th>
-          <th>Params</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>Embedding</td>
-          <td>512</td>
-          <td>1M</td>
-      </tr>
-      <tr>
-          <td>Encoder</td>
-          <td>512</td>
-          <td>60M</td>
-      </tr>
-      <tr>
-          <td>Decoder</td>
-          <td>512</td>
-          <td>60M</td>
-      </tr>
-  </tbody>
-</table>
-<h2 id="插入图片">插入图片<a hidden class="anchor" aria-hidden="true" href="#插入图片">#</a></h2>
-<p>将图片放在同目录下，同目录下面必须有一个index.md文件，然后引用：</p>
-<!-- ![Transformer 架构图](transformer.png)  -->
-<p><img alt="Transformer 架构图" loading="lazy" src="/toolbox/hugo/demo_math_and_image/transformer.png"></p>
-<blockquote>
-<p>提示：确保文件名称为index.md,_index.md文件也不行。</p>
-</blockquote>
 
-
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">使用 Mindspeed-LLM进行预训练
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。
+准备数据 准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字prompt和response，其中prompt为输入，response为输出。
+注意：如果提供的jsonl文件里面没有包含chat template，那么在转换数据的时候要添加prompt-type参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：
+{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet $\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\overline{IA}\\perp\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\cdot AC$.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....&#34;} {&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet \\(b\\ge 2\\) be an integer. Call a positive integer \\(n\\) \\(b\\text-\\textit{eautiful}\\) if it has exactly two digits when expressed in base \\(b\\) and these two digits sum to \\(\\sqrt n\\). For example, \\(81\\) is \\(13\\text-\\textit{eautiful}\\) because \\(81 = \\underline{6} \\ \\underline{3}_{13} \\) and \\(6 &#43; 3 = \\sqrt{81}\\). Find the least integer \\(b\\ge 2\\) for which there are more than ten \\(b\\text-\\textit{eautiful}\\) integers.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nThe problem defines a \&#34;b-beautiful\&#34; number as a positive integer...&#34;} 准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：
+...</p>
   </div>
-
-  <footer class="post-footer">
-    <ul class="post-tags">
-    </ul>
-  </footer>
+  <footer class="entry-footer"><span title='2025-11-14 00:00:00 +0000 UTC'>November 14, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to 使用 Mindspeed-LLM进行预训练" href="http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/"></a>
 </article>
     </main>
     

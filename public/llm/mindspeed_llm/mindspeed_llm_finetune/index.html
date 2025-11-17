@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>使用 Mindspeed-LLM进行预训练 | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。
+准备数据
+准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字prompt和response，其中prompt为输入，response为输出。
+注意：如果提供的jsonl文件里面没有包含chat template，那么在转换数据的时候要添加prompt-type参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：
+{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet $\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\overline{IA}\\perp\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\cdot AC$.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....&#34;}
+{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet \\(b\\ge 2\\) be an integer. Call a positive integer \\(n\\) \\(b\\text-\\textit{eautiful}\\) if it has exactly two digits when expressed in base \\(b\\)  and these two digits sum to \\(\\sqrt n\\). For example, \\(81\\) is \\(13\\text-\\textit{eautiful}\\) because \\(81  = \\underline{6} \\ \\underline{3}_{13} \\) and \\(6 &#43; 3 =  \\sqrt{81}\\). Find the least integer \\(b\\ge 2\\) for which there are more than ten \\(b\\text-\\textit{eautiful}\\) integers.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nThe problem defines a \&#34;b-beautiful\&#34; number as a positive integer...&#34;}
+准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：">
+<meta name="author" content="fandengdong">
+<link rel="canonical" href="http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><meta property="og:url" content="http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/">
+  <meta property="og:site_name" content="My work notes">
+  <meta property="og:title" content="使用 Mindspeed-LLM进行预训练">
+  <meta property="og:description" content="本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。
+准备数据 准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字prompt和response，其中prompt为输入，response为输出。
+注意：如果提供的jsonl文件里面没有包含chat template，那么在转换数据的时候要添加prompt-type参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：
+{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet $\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\overline{IA}\\perp\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\cdot AC$.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....&#34;} {&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet \\(b\\ge 2\\) be an integer. Call a positive integer \\(n\\) \\(b\\text-\\textit{eautiful}\\) if it has exactly two digits when expressed in base \\(b\\) and these two digits sum to \\(\\sqrt n\\). For example, \\(81\\) is \\(13\\text-\\textit{eautiful}\\) because \\(81 = \\underline{6} \\ \\underline{3}_{13} \\) and \\(6 &#43; 3 = \\sqrt{81}\\). Find the least integer \\(b\\ge 2\\) for which there are more than ten \\(b\\text-\\textit{eautiful}\\) integers.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nThe problem defines a \&#34;b-beautiful\&#34; number as a positive integer...&#34;} 准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：">
+  <meta property="og:locale" content="zh-CN">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2025-11-14T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-11-14T00:00:00+00:00">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="使用 Mindspeed-LLM进行预训练">
+<meta name="twitter:description" content="本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。
+准备数据
+准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字prompt和response，其中prompt为输入，response为输出。
+注意：如果提供的jsonl文件里面没有包含chat template，那么在转换数据的时候要添加prompt-type参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：
+{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet $\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\overline{IA}\\perp\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\cdot AC$.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....&#34;}
+{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet \\(b\\ge 2\\) be an integer. Call a positive integer \\(n\\) \\(b\\text-\\textit{eautiful}\\) if it has exactly two digits when expressed in base \\(b\\)  and these two digits sum to \\(\\sqrt n\\). For example, \\(81\\) is \\(13\\text-\\textit{eautiful}\\) because \\(81  = \\underline{6} \\ \\underline{3}_{13} \\) and \\(6 &#43; 3 =  \\sqrt{81}\\). Find the least integer \\(b\\ge 2\\) for which there are more than ten \\(b\\text-\\textit{eautiful}\\) integers.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nThe problem defines a \&#34;b-beautiful\&#34; number as a positive integer...&#34;}
+准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "Mindspeed-LLM",
+      "item": "http://localhost:1313/llm/mindspeed_llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "使用 Mindspeed-LLM进行预训练",
+      "item": "http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "使用 Mindspeed-LLM进行预训练",
+  "name": "使用 Mindspeed-LLM进行预训练",
+  "description": "本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。\n准备数据 准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字prompt和response，其中prompt为输入，response为输出。\n注意：如果提供的jsonl文件里面没有包含chat template，那么在转换数据的时候要添加prompt-type参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：\n{\u0026#34;prompt\u0026#34;:\u0026#34;\u0026lt;|im_start|\u0026gt;system\\nYou are a helpful assistant. To answer the user\\\u0026#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within \u0026lt;think\u0026gt; \u0026lt;\\/think\u0026gt; and \u0026lt;answer\u0026gt; \u0026lt;\\/answer\u0026gt; tags, respectively, i.e., \u0026lt;think\u0026gt; reasoning process here \u0026lt;\\/think\u0026gt; \u0026lt;answer\u0026gt; answer here \u0026lt;\\/answer\u0026gt;.\u0026lt;|im_end|\u0026gt;\\n\u0026lt;|im_start|\u0026gt;user\\nLet $\\\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\\\overline{IA}\\\\perp\\\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\\\cdot AC$.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\u0026lt;|im_end|\u0026gt;\\n\u0026lt;|im_start|\u0026gt;assistant\\n\u0026#34;,\u0026#34;response\u0026#34;:\u0026#34;\u0026lt;think\u0026gt;\\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....\u0026#34;} {\u0026#34;prompt\u0026#34;:\u0026#34;\u0026lt;|im_start|\u0026gt;system\\nYou are a helpful assistant. To answer the user\\\u0026#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within \u0026lt;think\u0026gt; \u0026lt;\\/think\u0026gt; and \u0026lt;answer\u0026gt; \u0026lt;\\/answer\u0026gt; tags, respectively, i.e., \u0026lt;think\u0026gt; reasoning process here \u0026lt;\\/think\u0026gt; \u0026lt;answer\u0026gt; answer here \u0026lt;\\/answer\u0026gt;.\u0026lt;|im_end|\u0026gt;\\n\u0026lt;|im_start|\u0026gt;user\\nLet \\\\(b\\\\ge 2\\\\) be an integer. Call a positive integer \\\\(n\\\\) \\\\(b\\\\text-\\\\textit{eautiful}\\\\) if it has exactly two digits when expressed in base \\\\(b\\\\) and these two digits sum to \\\\(\\\\sqrt n\\\\). For example, \\\\(81\\\\) is \\\\(13\\\\text-\\\\textit{eautiful}\\\\) because \\\\(81 = \\\\underline{6} \\\\ \\\\underline{3}_{13} \\\\) and \\\\(6 + 3 = \\\\sqrt{81}\\\\). Find the least integer \\\\(b\\\\ge 2\\\\) for which there are more than ten \\\\(b\\\\text-\\\\textit{eautiful}\\\\) integers.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\u0026lt;|im_end|\u0026gt;\\n\u0026lt;|im_start|\u0026gt;assistant\\n\u0026#34;,\u0026#34;response\u0026#34;:\u0026#34;\u0026lt;think\u0026gt;\\nThe problem defines a \\\u0026#34;b-beautiful\\\u0026#34; number as a positive integer...\u0026#34;} 准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。\n准备数据 准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字prompt和response，其中prompt为输入，response为输出。\n注意：如果提供的jsonl文件里面没有包含chat template，那么在转换数据的时候要添加prompt-type参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：\n{\"prompt\":\"\u003c|im_start|\u003esystem\\nYou are a helpful assistant. To answer the user\\'s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within \u003c\\/think\u003e and \u003c\\/answer\u003e tags, respectively, i.e., reasoning process here \u003c\\/think\u003e answer here \u003c\\/answer\u003e.\u003c|im_end|\u003e\\n\u003c|im_start|\u003euser\\nLet $\\\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\\\overline{IA}\\\\perp\\\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\\\cdot AC$.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\u003c|im_end|\u003e\\n\u003c|im_start|\u003eassistant\\n\",\"response\":\"\\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....\"} {\"prompt\":\"\u003c|im_start|\u003esystem\\nYou are a helpful assistant. To answer the user\\'s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within \u003c\\/think\u003e and \u003c\\/answer\u003e tags, respectively, i.e., reasoning process here \u003c\\/think\u003e answer here \u003c\\/answer\u003e.\u003c|im_end|\u003e\\n\u003c|im_start|\u003euser\\nLet \\\\(b\\\\ge 2\\\\) be an integer. Call a positive integer \\\\(n\\\\) \\\\(b\\\\text-\\\\textit{eautiful}\\\\) if it has exactly two digits when expressed in base \\\\(b\\\\) and these two digits sum to \\\\(\\\\sqrt n\\\\). For example, \\\\(81\\\\) is \\\\(13\\\\text-\\\\textit{eautiful}\\\\) because \\\\(81 = \\\\underline{6} \\\\ \\\\underline{3}_{13} \\\\) and \\\\(6 + 3 = \\\\sqrt{81}\\\\). Find the least integer \\\\(b\\\\ge 2\\\\) for which there are more than ten \\\\(b\\\\text-\\\\textit{eautiful}\\\\) integers.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\\nPlease reason step by step, and put your final answer within \\\\boxed{}.\u003c|im_end|\u003e\\n\u003c|im_start|\u003eassistant\\n\",\"response\":\"\\nThe problem defines a \\\"b-beautiful\\\" number as a positive integer...\"} 准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：\n#!/bin/bash source /home/fdd/workspace/Ascend/CANN8.2.RC1/ascend-toolkit/set_env.sh python ./preprocess_data.py \\ --input /path/to/dataset.jsonl \\ --tokenizer-name-or-path /home/fdd/workspace/models/Qwen/Qwen2.5-32B \\ --output-prefix /path/to/dataset \\ --workers 64 \\ --n-subs 1 \\ --log-interval 100 \\ --tokenizer-type PretrainedFromHF \\ --handler-name AlpacaStyleInstructionHandler \\ --prompt-type empty \\ --seq-length 65536 \\ --cache-dir /home/fdd/workspace/tmp \\ --map-keys '{\"prompt\":\"prompt\", \"query\":\"\", \"response\":\"response\"}' # 默认值，可不传 # --pack \\ # --neat-pack \\ # --map-keys '{\"prompt\":\"prompt\",\"query\":\"input\",\"response\":\"answer\"}' # 默认值，可不传 # --map-keys '{\"prompt\":\"instruction\",\"query\":\"input\",\"response\":\"output\"}' # 默认值，可不传 # 32768 上面脚本有几个参数需要说明下：\n--output-prefix: 这个prefix中dataset是输出文件的前缀，后续训练填写路径跟这个保持一致，好多人只填写到目录，导致没有读取数据集； --n-subs: 这个参数是处理数据集的时候，将数据集切分为几分同时处理；一般对于比较大的数据集文件，可以开启8，速度会显著提升； --prompt-type: 这个参数是设置模型训练的chat template，如果数据集自带了chat template，则设置为empty，否则需要自己从configs/finetune/templates.json里面挑选一个模板，或者自定义一个模板，并保存在configs/finetune/templates.json里面，然后设置为对应的模板名称； --seq-length：这个参数是设置模型训练的sequence length，这个参数需要根据数据集和模型进行设置，一般设置为数据集的max_seq_len，或者模型默认的max_seq_len； --cache_dir：这个参数是设置模型缓存目录，这个参数可以不设置。建议设置到存储空间大的位置； --map-keys: 这个参数是设置数据集的映射关系，这个参数可以不设置。如果数据集的key和脚本需要的key不一致，可以通过这个参数进行映射； 上面配置是默认采用动态长度的数据集处理方式。为了提升训练效率，可以采用packing的方法预处理数据集，添加--pack和--neat-pack参数即可； 准备权重 mindspeed-llm读取的权重跟megatron保持一致，即采用mcore权重。一般我们下载的模型为huggingface格式，因此需要将huggingface格式的权重转换成mcore格式。\nmindspeed-llm一共了各种模型架构的权重转换脚本，具体可以在这个目录下找到：examples/mcore/，我们以Qwen2.5-7B模型为例：\n# 修改 ascend-toolkit 路径 source /home/fdd/workspace/Ascend/CANN8.2.RC1/ascend-toolkit/set_env.sh export CUDA_DEVICE_MAX_CONNECTIONS=1 model_path_hf=/home/fdd/workspace/models/Qwen/Qwen2.5-7B TP=1 PP=1 # 设置需要的权重转换参数 python convert_ckpt.py \\ --use-mcore-models \\ --model-type GPT \\ --load-model-type hf \\ --save-model-type mg \\ --target-tensor-parallel-size $TP \\ --target-pipeline-parallel-size $PP \\ --add-qkv-bias \\ --load-dir $model_path_hf \\ --save-dir $model_path_hf/mcore_tp${TP}_pp${PP}/ \\ --tokenizer-model $model_path_hf/tokenizer.json \\ --model-type-hf llama2 \\ --params-dtype bf16 # --num-layer-list 11,13,19,21 参数根据需要添加 我根据个人使用习惯，稍微修改了一下官方脚本，将TP和PP参数放在一起，新转换的权重路径跟原始路径保持一致，方便后续使用。\n开启训练 准备好数据集和训练权重后，我们可以利用mindspeed-llm提供的训练脚本进行训练。mindspeed-llm针对各个模型（deepseek，qwen，llama等）的各种任务（pretrain，finetune，chat，generate)提供了相应的训练脚本，这里以qwen为例，脚本位于examples/mcore/qwen25/tune_qwen25_7b_4k_full_ptd.sh\n#!/bin/bash export CUDA_DEVICE_MAX_CONNECTIONS=1 NPUS_PER_NODE=4 # 每个节点使用的NPU数量，必须大于等于TP*PP MASTER_ADDR=localhost # 训练主节点的IP地址 MASTER_PORT=6000 # 训练主节点的端口号 NNODES=1 # 训练节点数量 NODE_RANK=0 # 训练节点的node_id，如果是多个节点训练，则每个节点的node_id必须从0开始递增 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES)) # 自动计算训练总共使用的卡数 # please fill these path configurations CKPT_LOAD_DIR=\"/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp2_pp1/\" CKPT_SAVE_DIR=\"/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp2_pp1/ckpt\" DATA_PATH=\"/home/fdd/workspace/datasets/merged_long_COT_SFT/merged_SFT_final\" TOKENIZER_PATH=\"/home/fdd/workspace/models/Qwen/Qwen2.5-7B\" TP=4 # 模型并行数 PP=1 # pipeline并行数 SEQ_LEN=4096 # 模型训练的最长输入序列长度 MBS=1 # mindspeed-llm中前向和反向的micro BS，计算完，并不马上更新梯度 GBS=8 # 模型训练的global BS，也就是拿到8个样本的梯度后，才更新一次 TRAIN_ITERS=5000 # 训练步长 ... torchrun $DISTRIBUTED_ARGS posttrain_gpt.py \\ $GPT_ARGS \\ $DATA_ARGS \\ $CKPT_ARGS \\ $OUTPUT_ARGS \\ $TUNE_ARGS \\ --load ${CKPT_LOAD_DIR} \\ --save ${CKPT_SAVE_DIR} \\ --distributed-backend nccl \\ | tee logs/tune_mcore_qwen25_7b_full.log 可以看到finetune的启动文件为posttrain_gpt.py，启动方式为torchrun，其它所有的参数都可以在bash启动脚本中配置。\nmindspeed-llm训练主流程分析 先看一下posttrain_gpt.py的启动脚本，这只是一个启动入口\n# Copyright (c) 2024, HUAWEI CORPORATION. All rights reserved. from mindspeed_llm import megatron_adaptor from mindspeed_llm.tasks.posttrain.launcher import AutoTrainer def launch(): trainer = AutoTrainer() trainer.train() if __name__ == '__main__': launch() 继续查看AutoTrainer的实现，发现是一个分配任务的类：\ndef get_trainer(stage): \"\"\" Factory function to select the appropriate trainer based on the 'stage' argument. :param stage: A string representing the stage of the training. :return: An instance of the appropriate trainer class. \"\"\" if stage == \"sft\": return SFTTrainer() elif stage == \"dpo\": return DPOTrainer() elif stage == \"orm\": return ORMTrainer() elif stage == \"prm\": return PRMTrainer() elif stage == \"simpo\": return SimPOTrainer() elif stage == \"trl_ppo\": return TrlPPOTrainer() else: logger.info(f'Unknown Stage: {stage}') return None class AutoTrainer: \"\"\" AutoTrainer is an automatic trainer selector. It chooses the appropriate trainer (e.g., SFTTrainer, DPOTrainer, ORMTrainer...) based on the 'stage' argument. \"\"\" def __init__(self): \"\"\" Initializes the AutoTrainer. - Initializes the training system. - Retrieves the 'stage' argument. - Uses the 'stage' to select the correct trainer. \"\"\" initialize_megatron() self.args = get_args() self.trainer = get_trainer(self.args.stage) def train(self): \"\"\" Starts the training process by invoking the 'train()' method of the selected trainer. \"\"\" self.trainer.train() 因此，对于真正的训练，可以查看SFTTrainer的实现：\nclass SFTTrainer(BaseTrainer): def __init__(self): super().__init__() @staticmethod def get_batch(data_iterator): \"\"\"Generate a batch.\"\"\" # Items and their type. ... @staticmethod def loss_func(input_tensor: torch.Tensor, output_tensor: torch.Tensor): \"\"\"Loss function. Args: input_tensor (torch.Tensor): Used to mask out some portions of the loss output_tensor (torch.Tensor): The tensor with the losses \"\"\" args = get_args() loss_mask = input_tensor ... def forward_step(self, data_iterator, model): \"\"\"Forward training step. Args: data_iterator : Input data iterator model (GPTModel): The GPT Model \"\"\" args = get_args() timers = get_timers() # Get the batch. timers('batch-generator', log_level=2).start() tokens, labels, loss_mask, attention_mask, position_ids = self.get_batch( data_iterator) timers('batch-generator').stop() if args.use_legacy_models: output_tensor = model(tokens, position_ids, attention_mask, labels=labels) else: output_tensor = model(tokens, position_ids, attention_mask, labels=labels, loss_mask=loss_mask) return output_tensor, partial(self.loss_func, loss_mask) SFTTrainer主要定义了：\n数据预处理，从dataloader给到的数据如何正确的喂给模型； 损失函数，如何计算模型输出的loss； 前向函数，如何将数据输入模型，并返回模型输出和损失函数。 我们再看SFTTrainer的父类BaseTrainer：\nclass BaseTrainer(ABC): \"\"\" BaseTrainer is an abstract base class that provides fundamental functions for training large language models. It defines the following core methods: - `__init__`: Initializes the basic attributes of the trainer. - `initialize`: Initializes the trainer, including setting up timers, data iterators, etc. - `model_provider`: Provides the model to be trained. - `get_batch`: Retrieves a batch of data from the data iterator. - `loss_func`: Computes the loss function. - `forward_step`: Performs a forward pass step, computing the loss. - `train`: The main training loop, controlling the entire training process. \"\"\" def __init__(self, process_non_loss_data_func=None): self.args = get_args() self.timers = get_timers() self.process_non_loss_data_func = process_non_loss_data_func self.train_args = None self.model_type = None self.test_data_iterator_list = None self.train_valid_test_datasets_provider = train_valid_test_datasets_provider self.initialize() ... def model_provider(self, pre_process, post_process): \"\"\" Builds the model. If you set the use_mcore_models to True, it will return the mcore GPT model and if not the legacy GPT model. Args: pre_process (bool, optional): Set to true if you need to compute embedings. Defaults to True. post_process (bool, optional): Set to true if you need to want to compute output logits/loss. Defaults to True. Returns: Union[GPTModel, megatron.legacy.model.GPTModel]: The returned model \"\"\" ... model = GPTModel( config=config, transformer_layer_spec=transformer_layer_spec, vocab_size=args.padded_vocab_size, max_sequence_length=args.max_position_embeddings, pre_process=pre_process, post_process=post_process, fp16_lm_cross_entropy=args.fp16_lm_cross_entropy, parallel_output=True, share_embeddings_and_output_weights=not args.untie_embeddings_and_output_weights, position_embedding_type=args.position_embedding_type, rotary_percent=args.rotary_percent, seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor, mtp_block_spec=mtp_block_spec, ) ... def train(self): args = get_args() ... iteration, num_floating_point_operations_so_far = train(*self.train_args) ... 这里我们只关心GPTModel的定义和train函数。注意这里的GPTModel定义不是megatron/core/models/gpt/gpt_model.py:GPTModel，而是mindspeed_llm/core/models/gpt/gpt_model.py:GPTModel。这点有点奇怪，但是调试结果确实是这样的，如果要修改模型定义，记得需要修改的是mindspeed_llm/core/models/gpt/gpt_model.py:GPTModel。\n在GPTModel中，我们可以看到每个网络层的定义，以及forward函数。这里细节比较多，有需求可以查看链接\n在train函数里面则包含了主训练循环，这里细节比较多，有需求可以参考链接\n调试 如果训练过程中出现错误，可以参考mindspeed里的方法来进行调试。\n总的来说，使用mindspeed-llm的来训练模型还是比较方便的。注意，对于多卡训练，loss信息只会在mindspeed-llm只在最后一个节点打印输出。\n",
+  "wordCount" : "997",
+  "inLanguage": "en",
+  "datePublished": "2025-11-14T00:00:00Z",
+  "dateModified": "2025-11-14T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="My work notes (Alt + H)">My work notes</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
+                    <span>大语言模型 (LLM)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
+                    <span>欢迎来到我的工作空间</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      使用 Mindspeed-LLM进行预训练
+    </h1>
+    <div class="post-meta"><span title='2025-11-14 00:00:00 +0000 UTC'>November 14, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。</p>
+<h2 id="准备数据">准备数据<a hidden class="anchor" aria-hidden="true" href="#准备数据">#</a></h2>
+<p>准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字<code>prompt</code>和<code>response</code>，其中<code>prompt</code>为输入，<code>response</code>为输出。</p>
+<p>注意：如果提供的jsonl文件里面没有包含<code>chat template</code>，那么在转换数据的时候要添加<code>prompt-type</code>参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：</p>
+<pre tabindex="0"><code class="language-jsonl" data-lang="jsonl">{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet $\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\overline{IA}\\perp\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\cdot AC$.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....&#34;}
+{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet \\(b\\ge 2\\) be an integer. Call a positive integer \\(n\\) \\(b\\text-\\textit{eautiful}\\) if it has exactly two digits when expressed in base \\(b\\)  and these two digits sum to \\(\\sqrt n\\). For example, \\(81\\) is \\(13\\text-\\textit{eautiful}\\) because \\(81  = \\underline{6} \\ \\underline{3}_{13} \\) and \\(6 + 3 =  \\sqrt{81}\\). Find the least integer \\(b\\ge 2\\) for which there are more than ten \\(b\\text-\\textit{eautiful}\\) integers.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nThe problem defines a \&#34;b-beautiful\&#34; number as a positive integer...&#34;}
+</code></pre><p>准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="cp">#!/bin/bash
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="nb">source</span> /home/fdd/workspace/Ascend/CANN8.2.RC1/ascend-toolkit/set_env.sh
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">python ./preprocess_data.py <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --input /path/to/dataset.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --tokenizer-name-or-path /home/fdd/workspace/models/Qwen/Qwen2.5-32B <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --output-prefix /path/to/dataset <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --workers <span class="m">64</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --n-subs <span class="m">1</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --log-interval <span class="m">100</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --tokenizer-type PretrainedFromHF <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --handler-name AlpacaStyleInstructionHandler <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --prompt-type empty  <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --seq-length <span class="m">65536</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --cache-dir /home/fdd/workspace/tmp <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --map-keys <span class="s1">&#39;{&#34;prompt&#34;:&#34;prompt&#34;, &#34;query&#34;:&#34;&#34;, &#34;response&#34;:&#34;response&#34;}&#39;</span> <span class="c1"># 默认值，可不传</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># --pack \</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># --neat-pack \</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># --map-keys &#39;{&#34;prompt&#34;:&#34;prompt&#34;,&#34;query&#34;:&#34;input&#34;,&#34;response&#34;:&#34;answer&#34;}&#39; # 默认值，可不传</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># --map-keys &#39;{&#34;prompt&#34;:&#34;instruction&#34;,&#34;query&#34;:&#34;input&#34;,&#34;response&#34;:&#34;output&#34;}&#39; # 默认值，可不传</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 32768</span>
+</span></span></code></pre></div><p>上面脚本有几个参数需要说明下：</p>
+<ol>
+<li><code>--output-prefix</code>: 这个<code>prefix</code>中<code>dataset</code>是<strong>输出文件的前缀</strong>，后续训练填写路径跟这个保持一致，好多人只填写到目录，导致没有读取数据集；</li>
+<li><code>--n-subs</code>: 这个参数是处理数据集的时候，将数据集切分为几分同时处理；一般对于比较大的数据集文件，可以开启8，速度会显著提升；</li>
+<li><code>--prompt-type</code>: 这个参数是设置模型训练的<code>chat template</code>，如果数据集自带了<code>chat template</code>，则设置为<code>empty</code>，否则需要自己从<code>configs/finetune/templates.json</code>里面挑选一个模板，或者自定义一个模板，并保存在<code>configs/finetune/templates.json</code>里面，然后设置为对应的模板名称；</li>
+<li><code>--seq-length</code>：这个参数是设置模型训练的<code>sequence length</code>，这个参数需要根据数据集和模型进行设置，一般设置为数据集的<code>max_seq_len</code>，或者模型默认的<code>max_seq_len</code>；</li>
+<li><code>--cache_dir</code>：这个参数是设置模型缓存目录，这个参数可以不设置。建议设置到存储空间大的位置；</li>
+<li><code>--map-keys</code>: 这个参数是设置数据集的映射关系，这个参数可以不设置。如果数据集的<code>key</code>和脚本需要的<code>key</code>不一致，可以通过这个参数进行映射；</li>
+<li>上面配置是默认采用动态长度的数据集处理方式。为了提升训练效率，可以采用packing的方法预处理数据集，添加<code>--pack</code>和<code>--neat-pack</code>参数即可；</li>
+</ol>
+<h2 id="准备权重">准备权重<a hidden class="anchor" aria-hidden="true" href="#准备权重">#</a></h2>
+<p>mindspeed-llm读取的权重跟megatron保持一致，即采用mcore权重。一般我们下载的模型为huggingface格式，因此需要将huggingface格式的权重转换成mcore格式。</p>
+<p>mindspeed-llm一共了各种模型架构的权重转换脚本，具体可以在这个目录下找到：examples/mcore/，我们以Qwen2.5-7B模型为例：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 修改 ascend-toolkit 路径</span>
+</span></span><span class="line"><span class="cl"><span class="nb">source</span> /home/fdd/workspace/Ascend/CANN8.2.RC1/ascend-toolkit/set_env.sh
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">CUDA_DEVICE_MAX_CONNECTIONS</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nv">model_path_hf</span><span class="o">=</span>/home/fdd/workspace/models/Qwen/Qwen2.5-7B
+</span></span><span class="line"><span class="cl"><span class="nv">TP</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl"><span class="nv">PP</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 设置需要的权重转换参数</span>
+</span></span><span class="line"><span class="cl">python convert_ckpt.py <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --use-mcore-models <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --model-type GPT <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --load-model-type hf <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --save-model-type mg <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --target-tensor-parallel-size <span class="nv">$TP</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --target-pipeline-parallel-size <span class="nv">$PP</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --add-qkv-bias <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --load-dir <span class="nv">$model_path_hf</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --save-dir <span class="nv">$model_path_hf</span>/mcore_tp<span class="si">${</span><span class="nv">TP</span><span class="si">}</span>_pp<span class="si">${</span><span class="nv">PP</span><span class="si">}</span>/ <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --tokenizer-model <span class="nv">$model_path_hf</span>/tokenizer.json <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --model-type-hf llama2 <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>       --params-dtype bf16 <span class="c1"># --num-layer-list 11,13,19,21 参数根据需要添加</span>
+</span></span></code></pre></div><p>我根据个人使用习惯，稍微修改了一下官方脚本，将TP和PP参数放在一起，新转换的权重路径跟原始路径保持一致，方便后续使用。</p>
+<h2 id="开启训练">开启训练<a hidden class="anchor" aria-hidden="true" href="#开启训练">#</a></h2>
+<p>准备好数据集和训练权重后，我们可以利用mindspeed-llm提供的训练脚本进行训练。mindspeed-llm针对各个模型（deepseek，qwen，llama等）的各种任务（pretrain，finetune，chat，generate)提供了相应的训练脚本，这里以qwen为例，脚本位于<code>examples/mcore/qwen25/tune_qwen25_7b_4k_full_ptd.sh</code></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="cp">#!/bin/bash
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="nb">export</span> <span class="nv">CUDA_DEVICE_MAX_CONNECTIONS</span><span class="o">=</span><span class="m">1</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nv">NPUS_PER_NODE</span><span class="o">=</span><span class="m">4</span>     <span class="c1"># 每个节点使用的NPU数量，必须大于等于TP*PP</span>
+</span></span><span class="line"><span class="cl"><span class="nv">MASTER_ADDR</span><span class="o">=</span>localhost <span class="c1"># 训练主节点的IP地址</span>
+</span></span><span class="line"><span class="cl"><span class="nv">MASTER_PORT</span><span class="o">=</span><span class="m">6000</span>  <span class="c1"># 训练主节点的端口号</span>
+</span></span><span class="line"><span class="cl"><span class="nv">NNODES</span><span class="o">=</span><span class="m">1</span>  <span class="c1"># 训练节点数量</span>
+</span></span><span class="line"><span class="cl"><span class="nv">NODE_RANK</span><span class="o">=</span><span class="m">0</span> <span class="c1"># 训练节点的node_id，如果是多个节点训练，则每个节点的node_id必须从0开始递增</span>
+</span></span><span class="line"><span class="cl"><span class="nv">WORLD_SIZE</span><span class="o">=</span><span class="k">$((</span><span class="nv">$NPUS_PER_NODE</span><span class="o">*</span><span class="nv">$NNODES</span><span class="k">))</span> <span class="c1"># 自动计算训练总共使用的卡数</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># please fill these path configurations</span>
+</span></span><span class="line"><span class="cl"><span class="nv">CKPT_LOAD_DIR</span><span class="o">=</span><span class="s2">&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp2_pp1/&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">CKPT_SAVE_DIR</span><span class="o">=</span><span class="s2">&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp2_pp1/ckpt&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">DATA_PATH</span><span class="o">=</span><span class="s2">&#34;/home/fdd/workspace/datasets/merged_long_COT_SFT/merged_SFT_final&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nv">TOKENIZER_PATH</span><span class="o">=</span><span class="s2">&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nv">TP</span><span class="o">=</span><span class="m">4</span>   <span class="c1"># 模型并行数</span>
+</span></span><span class="line"><span class="cl"><span class="nv">PP</span><span class="o">=</span><span class="m">1</span>   <span class="c1"># pipeline并行数</span>
+</span></span><span class="line"><span class="cl"><span class="nv">SEQ_LEN</span><span class="o">=</span><span class="m">4096</span> <span class="c1"># 模型训练的最长输入序列长度</span>
+</span></span><span class="line"><span class="cl"><span class="nv">MBS</span><span class="o">=</span><span class="m">1</span>   <span class="c1"># mindspeed-llm中前向和反向的micro BS，计算完，并不马上更新梯度</span>
+</span></span><span class="line"><span class="cl"><span class="nv">GBS</span><span class="o">=</span><span class="m">8</span>   <span class="c1"># 模型训练的global BS，也就是拿到8个样本的梯度后，才更新一次</span>
+</span></span><span class="line"><span class="cl"><span class="nv">TRAIN_ITERS</span><span class="o">=</span><span class="m">5000</span> <span class="c1"># 训练步长</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">torchrun <span class="nv">$DISTRIBUTED_ARGS</span> posttrain_gpt.py <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="nv">$GPT_ARGS</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="nv">$DATA_ARGS</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="nv">$CKPT_ARGS</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="nv">$OUTPUT_ARGS</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="nv">$TUNE_ARGS</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --load <span class="si">${</span><span class="nv">CKPT_LOAD_DIR</span><span class="si">}</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --save <span class="si">${</span><span class="nv">CKPT_SAVE_DIR</span><span class="si">}</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --distributed-backend nccl <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    <span class="p">|</span> tee logs/tune_mcore_qwen25_7b_full.log
+</span></span></code></pre></div><p>可以看到finetune的启动文件为posttrain_gpt.py，启动方式为torchrun，其它所有的参数都可以在bash启动脚本中配置。</p>
+<h2 id="mindspeed-llm训练主流程分析">mindspeed-llm训练主流程分析<a hidden class="anchor" aria-hidden="true" href="#mindspeed-llm训练主流程分析">#</a></h2>
+<p>先看一下posttrain_gpt.py的启动脚本，这只是一个启动入口</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Copyright (c) 2024, HUAWEI CORPORATION.  All rights reserved.</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">mindspeed_llm</span> <span class="kn">import</span> <span class="n">megatron_adaptor</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">mindspeed_llm.tasks.posttrain.launcher</span> <span class="kn">import</span> <span class="n">AutoTrainer</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">launch</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trainer</span> <span class="o">=</span> <span class="n">AutoTrainer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">launch</span><span class="p">()</span>
+</span></span></code></pre></div><p>继续查看AutoTrainer的实现，发现是一个分配任务的类：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get_trainer</span><span class="p">(</span><span class="n">stage</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Factory function to select the appropriate trainer based on the &#39;stage&#39; argument.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    :param stage: A string representing the stage of the training.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    :return: An instance of the appropriate trainer class.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&#34;sft&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">SFTTrainer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&#34;dpo&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">DPOTrainer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&#34;orm&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">ORMTrainer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&#34;prm&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">PRMTrainer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&#34;simpo&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">SimPOTrainer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&#34;trl_ppo&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">TrlPPOTrainer</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unknown Stage: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">AutoTrainer</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    AutoTrainer is an automatic trainer selector.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    It chooses the appropriate trainer (e.g., SFTTrainer, DPOTrainer, ORMTrainer...)
+</span></span></span><span class="line"><span class="cl"><span class="s2">    based on the &#39;stage&#39; argument.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Initializes the AutoTrainer.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">        - Initializes the training system.
+</span></span></span><span class="line"><span class="cl"><span class="s2">        - Retrieves the &#39;stage&#39; argument.
+</span></span></span><span class="line"><span class="cl"><span class="s2">        - Uses the &#39;stage&#39; to select the correct trainer.
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">initialize_megatron</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span> <span class="o">=</span> <span class="n">get_trainer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">stage</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Starts the training process by invoking the &#39;train()&#39; method of the selected trainer.
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+</span></span></code></pre></div><p>因此，对于真正的训练，可以查看<code>SFTTrainer</code>的实现：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SFTTrainer</span><span class="p">(</span><span class="n">BaseTrainer</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nd">@staticmethod</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">get_batch</span><span class="p">(</span><span class="n">data_iterator</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Generate a batch.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># Items and their type.</span>
+</span></span><span class="line"><span class="cl">        <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nd">@staticmethod</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">loss_func</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">output_tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Loss function.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Args:
+</span></span></span><span class="line"><span class="cl"><span class="s2">            input_tensor (torch.Tensor): Used to mask out some portions of the loss
+</span></span></span><span class="line"><span class="cl"><span class="s2">            output_tensor (torch.Tensor): The tensor with the losses
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="n">loss_mask</span> <span class="o">=</span> <span class="n">input_tensor</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_iterator</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Forward training step.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Args:
+</span></span></span><span class="line"><span class="cl"><span class="s2">            data_iterator : Input data iterator
+</span></span></span><span class="line"><span class="cl"><span class="s2">            model (GPTModel): The GPT Model
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="n">timers</span> <span class="o">=</span> <span class="n">get_timers</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Get the batch.</span>
+</span></span><span class="line"><span class="cl">        <span class="n">timers</span><span class="p">(</span><span class="s1">&#39;batch-generator&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tokens</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">loss_mask</span><span class="p">,</span> <span class="n">attention_mask</span><span class="p">,</span> <span class="n">position_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_batch</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data_iterator</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">timers</span><span class="p">(</span><span class="s1">&#39;batch-generator&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">use_legacy_models</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">output_tensor</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">position_ids</span><span class="p">,</span> <span class="n">attention_mask</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                  <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">output_tensor</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">position_ids</span><span class="p">,</span> <span class="n">attention_mask</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                  <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span> <span class="n">loss_mask</span><span class="o">=</span><span class="n">loss_mask</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">output_tensor</span><span class="p">,</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss_func</span><span class="p">,</span> <span class="n">loss_mask</span><span class="p">)</span>
+</span></span></code></pre></div><p>SFTTrainer主要定义了：</p>
+<ol>
+<li>数据预处理，从dataloader给到的数据如何正确的喂给模型；</li>
+<li>损失函数，如何计算模型输出的loss；</li>
+<li>前向函数，如何将数据输入模型，并返回模型输出和损失函数。</li>
+</ol>
+<p>我们再看SFTTrainer的父类BaseTrainer：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">BaseTrainer</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    BaseTrainer is an abstract base class that provides fundamental functions for training large language models.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    
+</span></span></span><span class="line"><span class="cl"><span class="s2">    It defines the following core methods:
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - `__init__`: Initializes the basic attributes of the trainer.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - `initialize`: Initializes the trainer, including setting up timers, data iterators, etc.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - `model_provider`: Provides the model to be trained.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - `get_batch`: Retrieves a batch of data from the data iterator.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - `loss_func`: Computes the loss function.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - `forward_step`: Performs a forward pass step, computing the loss.
+</span></span></span><span class="line"><span class="cl"><span class="s2">    - `train`: The main training loop, controlling the entire training process.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">process_non_loss_data_func</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">timers</span> <span class="o">=</span> <span class="n">get_timers</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">process_non_loss_data_func</span> <span class="o">=</span> <span class="n">process_non_loss_data_func</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">train_args</span> <span class="o">=</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">model_type</span> <span class="o">=</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">test_data_iterator_list</span> <span class="o">=</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">train_valid_test_datasets_provider</span> <span class="o">=</span> <span class="n">train_valid_test_datasets_provider</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">model_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pre_process</span><span class="p">,</span> <span class="n">post_process</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Builds the model.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">        If you set the use_mcore_models to True, it will return the mcore GPT model and if not the legacy GPT model.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Args:
+</span></span></span><span class="line"><span class="cl"><span class="s2">            pre_process (bool, optional): Set to true if you need to compute embedings. Defaults to True.
+</span></span></span><span class="line"><span class="cl"><span class="s2">            post_process (bool, optional): Set to true if you need to want to compute output logits/loss.
+</span></span></span><span class="line"><span class="cl"><span class="s2">            Defaults to True.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Returns:
+</span></span></span><span class="line"><span class="cl"><span class="s2">            Union[GPTModel, megatron.legacy.model.GPTModel]: The returned model
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">model</span> <span class="o">=</span> <span class="n">GPTModel</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">                <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">transformer_layer_spec</span><span class="o">=</span><span class="n">transformer_layer_spec</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">vocab_size</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">padded_vocab_size</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">max_sequence_length</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">max_position_embeddings</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">pre_process</span><span class="o">=</span><span class="n">pre_process</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">post_process</span><span class="o">=</span><span class="n">post_process</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">fp16_lm_cross_entropy</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">fp16_lm_cross_entropy</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">parallel_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">share_embeddings_and_output_weights</span><span class="o">=</span><span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">untie_embeddings_and_output_weights</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">position_embedding_type</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">position_embedding_type</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">rotary_percent</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">rotary_percent</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">seq_len_interpolation_factor</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">rotary_seq_len_interpolation_factor</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">mtp_block_spec</span><span class="o">=</span><span class="n">mtp_block_spec</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">iteration</span><span class="p">,</span> <span class="n">num_floating_point_operations_so_far</span> <span class="o">=</span> <span class="n">train</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">train_args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="o">...</span>
+</span></span></code></pre></div><p>这里我们只关心GPTModel的定义和train函数。注意这里的GPTModel定义不是<code>megatron/core/models/gpt/gpt_model.py:GPTModel</code>，而是<code>mindspeed_llm/core/models/gpt/gpt_model.py:GPTModel</code>。这点有点奇怪，但是调试结果确实是这样的，如果要修改模型定义，记得需要修改的是<code>mindspeed_llm/core/models/gpt/gpt_model.py:GPTModel</code>。</p>
+<p>在GPTModel中，我们可以看到每个网络层的定义，以及forward函数。这里细节比较多，有需求可以查看<a href="https://gitcode.com/Ascend/MindSpeed-LLM/blob/master/mindspeed_llm/core/models/gpt/gpt_model.py#L32">链接</a></p>
+<p>在train函数里面则包含了主训练循环，这里细节比较多，有需求可以参考<a href="https://gitcode.com/Ascend/MindSpeed-LLM/blob/master/mindspeed_llm/training/training.py#L515">链接</a></p>
+<h2 id="调试">调试<a hidden class="anchor" aria-hidden="true" href="#调试">#</a></h2>
+<p>如果训练过程中出现错误，可以参考mindspeed里的<a href="https://fandengdong.github.io/llm/mindspeed/get_started_with_mindspeed/#%E8%B0%83%E8%AF%95mindspeed%E8%AE%AD%E7%BB%83">方法</a>来进行调试。</p>
+<p>总的来说，使用mindspeed-llm的来训练模型还是比较方便的。注意，对于多卡训练，loss信息只会在mindspeed-llm只在最后一个节点打印输出。</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2025 <a href="http://localhost:1313/">My work notes</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

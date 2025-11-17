@@ -1,77 +1,87 @@
 ---
-title: "开始使用 Mindspeed训练"
+title: "开始使用 Mindspeed 进行大模型训练"
 date: 2025-11-11
 ---
 
-本指南通过[示例代码](https://github.com/fandengdong/fdd.github.io/blob/main/content/LLM/mindspeed/codes/simple_mcore_train_loop.py)演示如何使用 Mindspeed 进行模型训练。
+本文通过一个[完整示例代码](https://github.com/fandengdong/fdd.github.io/blob/main/content/LLM/mindspeed/codes/simple_mcore_train_loop.py)演示如何使用 **Mindspeed** 框架进行分布式大模型训练。
 
-演示代码版本信息：
+> **环境版本信息**  
+> - Mindspeed commit ID: `89f4632d`  
+> - Megatron 分支: `core_v0.12.1`  
+> - CANN: `8.2.RC1`  
+> - PyTorch: `2.5.1`
 
-1. mindspeed commit id: 89f4632d
-2. megatron branch: core_v0.12.1
-3. CANN: 8.2.RC1
-4. torch: 2.5.1
+---
 
-## Mindspeed 并行环境初始化
+## 1. 初始化分布式并行环境
 
-作为一个分布式的大模型训练框架，`Mindspeed` 在初始化期间需要设置分布式环境。核心初始化代码如下：
+Mindspeed 基于 Megatron 构建，支持张量并行（TP）和流水线并行（PP）。在训练前，必须正确初始化分布式环境：
 
 ```python
+import os
 import torch
-import mindspeed.megatron_adaptor  # 导入适配器以确保 Mindspeed 与 Megatron 兼容
+import mindspeed.megatron_adaptor  # 关键：确保 Mindspeed 与 Megatron API 兼容
 from megatron.core import parallel_state
 
 def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1):
+    # 清理已有状态（防止重复初始化）
     parallel_state.destroy_model_parallel()
 
-    # 标准 PyTorch 分布式训练设置
+    # 标准 PyTorch 分布式设置
     rank = int(os.environ.get('LOCAL_RANK', 0))
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     torch.cuda.set_device(rank)
     torch.distributed.init_process_group(world_size=world_size, rank=rank)
 
-    # Megatron 特定的分布式训练初始化
-    parallel_state.initialize_model_parallel(tensor_model_parallel_size, pipeline_model_parallel_size)
+    # 初始化 Megatron 并行状态
+    parallel_state.initialize_model_parallel(
+        tensor_model_parallel_size=tensor_model_parallel_size,
+        pipeline_model_parallel_size=pipeline_model_parallel_size
+    )
 ```
 
-与典型的并行代码的关键区别在于，除了调用标准的 torch.distributed.init_process_group 外，Mindspeed 还需要 parallel_state 初始化模型并行。注意在parallel_state初始化中，需要传入TP和PP的大小。
-
-此外，还需要注意，添加代码行`import mindspeed.megatron_adaptor`来保证Mindspeed对Megatron的API进行兼容。
+> **关键点说明**：
+> 必须显式导入 mindspeed.megatron_adaptor，以启用兼容层。
+> 除了标准的 torch.distributed.init_process_group，还需调用 parallel_state.initialize_model_parallel 来激活 TP/PP 支持。
+> 需根据实际训练配置传入 tensor_model_parallel_size 和 pipeline_model_parallel_size。
 
 ## Mindspeed 模型初始化
 
-```python
+Mindspeed 使用 Megatron Core 的模块化设计构建模型。以下是一个最小 GPT 模型的构建示例：
 
+```python
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.models.gpt.gpt_model import GPTModel
+from megatron.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
+
+_SEQUENCE_LENGTH = 64
 
 def model_provider():
-    """
-    Build the model.
-    """
     transformer_config = TransformerConfig(
-        num_layers=2, 
-        hidden_size=12, 
-        num_attention_heads=4, 
+        num_layers=2,
+        hidden_size=12,
+        num_attention_heads=4,
         use_cpu_initialization=True,
         pipeline_dtype=torch.float32,
-        params_dtype=torch.float16, # 控制模型参数类型
-        bf16=True, # 决定训练的前向反向的运算数据类型，没有被megetron.training.get_model函数调用，无效果
+        params_dtype=torch.float16,  # 控制模型参数存储类型
+        bf16=True,                   # 控制前向/反向计算的数据类型（需配合 get_model 使用）
     )
 
     print("Creating GPT model...")
     gpt_model = GPTModel(
-        config=transformer_config, 
-        transformer_layer_spec=get_gpt_layer_local_spec(), 
-        vocab_size=100, 
+        config=transformer_config,
+        transformer_layer_spec=get_gpt_layer_local_spec(),
+        vocab_size=100,
         max_sequence_length=_SEQUENCE_LENGTH,
-    )    
+    )
     print(gpt_model)
     print("GPT model created.")
     return gpt_model
 ```
 
-可以看到模型初始化分为两步：
+**模型结构解析**
+
+模型创建分为两步：
 1. Transformer的配置参数，包括transformer layer层数，hidden size，attention heads数，模型参数数据类型。
 2. 模型结构，包括transformer layer层，以及vocab size和max sequence length。
 
@@ -200,7 +210,13 @@ Unique devices in model: {device(type='cpu')}
 Total parameters: 3948
 ```
 
-可以看到，有的参数的维度减半了！
+可以看到，有的参数的维度减半了！这是因为TP并行，对模型的部分参数按照TP数进行了切分。仔细看，切分的网络层主要是：
+1. embedding.word_embeddings.weight
+2. self_attention.linear_qkv.weight，self_attention.linear_qkv.bias
+3. mlp.linear_fc1.weight, mlp.linear_fc1.bias
+4. output_layer.weight
+
+如果我们采用PP切分，则能看到rank0进程的model只包含了前半部分的网络层，rank1进程的model包含后半部分。
 
 另外，我们注意到在这里，我们设置`bf16=True`，去检查模型的参数，或者debug模型中间层的输入输出，其类型依然是float32。这是因为我们这里没有调用megatron.training.get_model函数，而是直接调用了megatron.model.GPTModel，这里GPTModel没有对模型的数值类型做任何的处理，仅仅是通过para_dtype初始化了模型参数。而get_model函数里面，则会根据bf16参数，对模型参数进行类型转换：
 
@@ -264,6 +280,25 @@ class Float16Module(MegatronModule):
     ...
 
 ```
+
+在实践中，使用混合精度训练时，想避免Float16Module对自定义的网络层的参数数据类型进行转换（主要是想保持fp32精度），我们需要同时重写网络层的half(self)，bfloat16(self)方法和_apply(self, fn)方法：
+
+```python
+class CustomLayer(nn.Module):
+    ...
+    def _apply(self, fn):
+        return self
+
+    def half(self):
+        return self 
+
+    def bfloat16(self):
+        return self 
+    ...
+```
+
+这样可以避免网络对自定义网络层的参数进行类型转换。另外，在前向的时候，还尽量显式的将输入数据转换为torch.float32。
+
 
 ## MindSpeed 训练主循环入口
 
@@ -402,12 +437,65 @@ def setup_debugpy():
 
 ```
 
-3. 正常启动Mindspeed的训练
+3. 在合适的地方出入setup_debugpy()，放在启动了多进程之后的代码位置，参考[这里](https://github.com/fandengdong/fandengdong.github.io/blob/main/content/LLM/mindspeed/codes/simple_mcore_train_loop.py#L129)
+
+4. 正常启动Mindspeed的训练
 
 ```bash
 torchrun --nproc-per-node 4 mindspeed_train.py 
 ```
 
-4. vscode调试器链接代码
+5. vscode调试器链接代码
 
-当终端打印出```[Rank 0] Waiting for debugger attach on port 22333...```，则可以点击vscode的debugger图标，选择Attach to Worker 1，然后点击启动按钮。
+当终端打印出```[Rank 0] Waiting for debugger attach on port 22333...```，则可以点击vscode的debugger图标，选择Attach to Worker 0，然后点击启动按钮。
+
+
+## 关于mindspeed的训练精度
+
+mindspeed提供了两个flag，用于设置训练精度：
+1. `--fp16`: 使用fp16训练精度。fp16表示的数值范围比较小，可能会出现上溢或者下溢，采用fp16进行训练，mindspeed会自动调用loss scaler来处理梯度向下溢出的问题（注意loss scaler是自动在optimizer中处理的）。
+2. `--bf16`: 使用bf16训练精度。bf16采用了更多的指数位，因此表示的数值范围会大很多，因此不需要loss scaler，但是bf16的数值精度要比fp16小。
+3. 如果`--fp16`和`--bf16`都是false，则默认会使用fp32训练精度。
+
+### 浮点数格式比较
+
+#### FP16 格式  
+FP16 是一种 16 位浮点数格式，包括：  
+- **1 位**用于符号（S）  
+- **5 位**用于指数（E）  
+- **10 位**用于尾数（M，也称为分数或 mantissa）
+
+| 字段   | 比特数 | 描述 |
+|--------|--------|------|
+| 符号 (S) | 1      | 表示数字的正负 |
+| 指数 (E) | 5      | 使用偏置（bias）为 15，表示范围约为 [-14, 15] |
+| 尾数 (M) | 10     | 隐含前导 1，实际有效精度为 11 位 |
+
+---
+
+#### BF16 格式  
+BF16 也是一种 16 位浮点数格式，但比特分配不同：  
+- **1 位**用于符号（S）  
+- **8 位**用于指数（E）  
+- **7 位**用于尾数（M）
+
+| 字段   | 比特数 | 描述 |
+|--------|--------|------|
+| 符号 (S) | 1      | 表示数字的正负 |
+| 指数 (E) | 8      | 使用偏置（bias）为 127，表示范围约为 [-126, 127] |
+| 尾数 (M) | 7      | 有效精度较低，无隐含位优化（与 FP32 对齐） |
+
+---
+
+### 数值表示范围和精度对比
+
+由于 BF16 将更多比特分配给指数部分，其**数值表示范围远大于 FP16**，接近 FP32；但尾数位更少，因此**精度低于 FP16**。
+
+| 格式 | 总位数 | 指数位数 | 尾数位数 | 数值范围（近似）         | 精度       |
+|------|--------|----------|----------|--------------------------|------------|
+| FP16 | 16     | 5        | 10       | \(6.1 \times 10^{-5}\) 到 \(6.5 \times 10^{4}\) | 较高       |
+| BF16 | 16     | 8        | 7        | 接近 FP32（约 \(10^{-38}\) 到 \(10^{38}\)） | 中等（低于 FP16） |
+
+> 💡 **总结**：  
+> - **FP16**：精度高，但动态范围小，训练时需配合 **loss scaler** 防止下溢。  
+> - **BF16**：动态范围大（类似 FP32），无需 loss scaler，但数值精度较低，适合对范围敏感、对精度容忍度较高的深度学习训练场景。

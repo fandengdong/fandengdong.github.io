@@ -3,18 +3,26 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>http://localhost:1313/llm/</loc>
-    <lastmod>2025-11-11T00:00:00+00:00</lastmod>
+    <lastmod>2025-11-14T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/toolbox/</loc>
     <lastmod>2025-11-06T18:00:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/rl/</loc>
+  </url><url>
+    <loc>http://localhost:1313/llm/mindspeed_llm/</loc>
+    <lastmod>2025-11-14T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/</loc>
+    <lastmod>2025-11-14T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/</loc>
+    <lastmod>2025-11-14T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/mindspeed/</loc>
     <lastmod>2025-11-11T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/</loc>
-    <lastmod>2025-11-11T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/</loc>
     <lastmod>2025-11-11T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/mindspeed/introduction_with_mindspeed/</loc>
@@ -42,7 +50,5 @@
     <loc>http://localhost:1313/llm/sglang/</loc>
   </url><url>
     <loc>http://localhost:1313/tags/</loc>
-  </url><url>
-    <loc>http://localhost:1313/rl/</loc>
   </url>
 </urlset>

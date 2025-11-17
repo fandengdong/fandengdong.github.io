@@ -7,7 +7,7 @@
 <meta name="robots" content="index, follow">
 <title>Mindspeed基本介绍 | My work notes</title>
 <meta name="keywords" content="">
-<meta name="description" content="MindSpeed is a Megatron adaptation framework tailored for the Ascend ecosystem.">
+<meta name="description" content="MindSpeed是一个为昇腾生态系统定制的Megatron适配框架。">
 <meta name="author" content="fandengdong">
 <link rel="canonical" href="http://localhost:1313/llm/mindspeed/introduction_with_mindspeed/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
@@ -73,7 +73,7 @@
 </script><meta property="og:url" content="http://localhost:1313/llm/mindspeed/introduction_with_mindspeed/">
   <meta property="og:site_name" content="My work notes">
   <meta property="og:title" content="Mindspeed基本介绍">
-  <meta property="og:description" content="MindSpeed is a Megatron adaptation framework tailored for the Ascend ecosystem.">
+  <meta property="og:description" content="MindSpeed是一个为昇腾生态系统定制的Megatron适配框架。">
   <meta property="og:locale" content="zh-CN">
   <meta property="og:type" content="article">
     <meta property="article:section" content="llm">
@@ -81,7 +81,7 @@
     <meta property="article:modified_time" content="2025-11-10T00:00:00+00:00">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Mindspeed基本介绍">
-<meta name="twitter:description" content="MindSpeed is a Megatron adaptation framework tailored for the Ascend ecosystem.">
+<meta name="twitter:description" content="MindSpeed是一个为昇腾生态系统定制的Megatron适配框架。">
 
 
 <script type="application/ld+json">
@@ -116,12 +116,12 @@
   "@type": "BlogPosting",
   "headline": "Mindspeed基本介绍",
   "name": "Mindspeed基本介绍",
-  "description": "MindSpeed is a Megatron adaptation framework tailored for the Ascend ecosystem.",
+  "description": "MindSpeed是一个为昇腾生态系统定制的Megatron适配框架。",
   "keywords": [
     
   ],
-  "articleBody": "The core purpose of MindSpeed is to efficiently adapt and accelerate large models based on Megatron-LM for training and inference on Huawei Ascend AI hardware. Its key functionalities include:\nFramework Compatibility: Adapting native Megatron-LM code to the Ascend NPU architecture to ensure correct functionality. Performance Optimization: Enhancing training and inference efficiency through techniques such as operator fusion, memory optimization, and communication acceleration. Multi-Level Acceleration: Offering configurable optimization tiers (e.g., basic compatibility, affinity enhancement, full acceleration) that users can enable based on their needs. Ecosystem Integration: Deep integration with Ascend software stacks like CANN and MindSpore for seamless hardware-software co-optimization. In short, MindSpeed enables Megatron-based large models to run correctly, run fast, and run reliably on Ascend devices.\nOne line code to adapt Megatron codes import torch import mindspeed.megatron_adaptor # 新增代码行 Acceleration Feature Tier Description MindSpeed Core acceleration features are divided into three levels. Users can select the optimization level to enable based on actual requirements by setting the --optimization-level {level} parameter in the launch script. This parameter supports the following configurations:\nLevel Level Name Description 0 Basic Function Compatibility Provides basic functional compatibility of the Megatron-LM framework with NPUs. 1 Affinity Enhancement 🔥 On top of L0, enables partial fusion operators and Ascend-friendly computation rewriting. 2 Acceleration Feature Enhancement 🔥🔥 Default value. Enables richer acceleration features based on L0 and L1, with acceleration features typically enabled via specific parameters. Refer to the “Feature Introduction” section for details. MindSpeed Core ecosystem Building upon the MindSpeed Core acceleration library, additional specialized libraries are available:\nLarge Language Model Library: MindSpeed LLM Multimodal Model Library: MindSpeed MM Reinforcement Learning Acceleration Library: MindSpeed RL ",
-  "wordCount" : "269",
+  "articleBody": "MindSpeed的核心目的是高效地适配和加速基于Megatron-LM的大模型，使其能够在华为昇腾AI硬件上进行训练和推理。其主要功能包括：\n框架兼容性：将原生Megatron-LM代码适配到昇腾NPU架构，确保功能正确性。 性能优化：通过算子融合、内存优化和通信加速等技术提升训练和推理效率。 多级加速：提供可配置的优化层级（如基础兼容性、亲和性增强、全面加速），用户可根据需求启用。 生态集成：与CANN和MindSpore等昇腾软件栈深度集成，实现无缝的软硬件协同优化。 简而言之，MindSpeed使基于Megatron的大模型能够在昇腾设备上正确运行、快速运行和可靠运行。\n一行代码适配Megatron代码 import torch import mindspeed.megatron_adaptor # 新增代码行 加速特性层级说明 MindSpeed Core加速特性分为三个层级。用户可以通过在启动脚本中设置--optimization-level {level}参数来根据实际需求选择要启用的优化级别。该参数支持以下配置：\n等级 等级名称 描述 0 基础功能兼容性 提供Megatron-LM框架与NPU的基础功能兼容性。 1 亲和性增强 🔥 在L0基础上，启用部分融合算子和昇腾友好的计算重写。 2 加速特性增强 🔥🔥 默认值。在L0和L1基础上启用更丰富的加速特性，加速特性通常通过特定参数启用。详情请参阅\"特性介绍\"部分。 MindSpeed Core生态系统 在MindSpeed Core加速库的基础上，还提供了以下专业库：\n大语言模型库: MindSpeed LLM 多模态模型库: MindSpeed MM 强化学习加速库: MindSpeed RL ",
+  "wordCount" : "44",
   "inLanguage": "en",
   "datePublished": "2025-11-10T00:00:00Z",
   "dateModified": "2025-11-10T00:00:00Z",
@@ -179,8 +179,13 @@
                 </a>
             </li>
             <li>
-                <a href="http://localhost:1313/toolbox/" title="工具箱">
-                    <span>工具箱</span>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
                 </a>
             </li>
             <li>
@@ -200,57 +205,57 @@
       Mindspeed基本介绍
     </h1>
     <div class="post-description">
-      MindSpeed is a Megatron adaptation framework tailored for the Ascend ecosystem.
+      MindSpeed是一个为昇腾生态系统定制的Megatron适配框架。
     </div>
     <div class="post-meta"><span title='2025-11-10 00:00:00 +0000 UTC'>November 10, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
 
 </div>
   </header> 
-  <div class="post-content"><p>The core purpose of MindSpeed is to efficiently adapt and accelerate large models based on Megatron-LM for training and inference on Huawei Ascend AI hardware. Its key functionalities include:</p>
+  <div class="post-content"><p>MindSpeed的核心目的是高效地适配和加速基于Megatron-LM的大模型，使其能够在华为昇腾AI硬件上进行训练和推理。其主要功能包括：</p>
 <ul>
-<li>Framework Compatibility: Adapting native Megatron-LM code to the Ascend NPU architecture to ensure correct functionality.</li>
-<li>Performance Optimization: Enhancing training and inference efficiency through techniques such as operator fusion, memory optimization, and communication acceleration.</li>
-<li>Multi-Level Acceleration: Offering configurable optimization tiers (e.g., basic compatibility, affinity enhancement, full acceleration) that users can enable based on their needs.</li>
-<li>Ecosystem Integration: Deep integration with Ascend software stacks like CANN and MindSpore for seamless hardware-software co-optimization.</li>
+<li>框架兼容性：将原生Megatron-LM代码适配到昇腾NPU架构，确保功能正确性。</li>
+<li>性能优化：通过算子融合、内存优化和通信加速等技术提升训练和推理效率。</li>
+<li>多级加速：提供可配置的优化层级（如基础兼容性、亲和性增强、全面加速），用户可根据需求启用。</li>
+<li>生态集成：与CANN和MindSpore等昇腾软件栈深度集成，实现无缝的软硬件协同优化。</li>
 </ul>
-<p>In short, MindSpeed enables Megatron-based large models to run correctly, run fast, and run reliably on Ascend devices.</p>
-<h2 id="one-line-code-to-adapt-megatron-codes">One line code to adapt Megatron codes<a hidden class="anchor" aria-hidden="true" href="#one-line-code-to-adapt-megatron-codes">#</a></h2>
+<p>简而言之，MindSpeed使基于Megatron的大模型能够在昇腾设备上正确运行、快速运行和可靠运行。</p>
+<h2 id="一行代码适配megatron代码">一行代码适配Megatron代码<a hidden class="anchor" aria-hidden="true" href="#一行代码适配megatron代码">#</a></h2>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch</span>
 </span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">mindspeed.megatron_adaptor</span> <span class="c1"># 新增代码行</span>
-</span></span></code></pre></div><h2 id="acceleration-feature-tier-description">Acceleration Feature Tier Description<a hidden class="anchor" aria-hidden="true" href="#acceleration-feature-tier-description">#</a></h2>
-<p>MindSpeed Core acceleration features are divided into three levels. Users can select the optimization level to enable based on actual requirements by setting the <code>--optimization-level {level}</code> parameter in the launch script. This parameter supports the following configurations:</p>
+</span></span></code></pre></div><h2 id="加速特性层级说明">加速特性层级说明<a hidden class="anchor" aria-hidden="true" href="#加速特性层级说明">#</a></h2>
+<p>MindSpeed Core加速特性分为三个层级。用户可以通过在启动脚本中设置<code>--optimization-level {level}</code>参数来根据实际需求选择要启用的优化级别。该参数支持以下配置：</p>
 <table>
   <thead>
       <tr>
-          <th>Level</th>
-          <th>Level Name</th>
-          <th>Description</th>
+          <th>等级</th>
+          <th>等级名称</th>
+          <th>描述</th>
       </tr>
   </thead>
   <tbody>
       <tr>
           <td>0</td>
-          <td>Basic Function Compatibility</td>
-          <td>Provides basic functional compatibility of the Megatron-LM framework with NPUs.</td>
+          <td>基础功能兼容性</td>
+          <td>提供Megatron-LM框架与NPU的基础功能兼容性。</td>
       </tr>
       <tr>
           <td>1</td>
-          <td>Affinity Enhancement 🔥</td>
-          <td>On top of L0, enables partial fusion operators and Ascend-friendly computation rewriting.</td>
+          <td>亲和性增强 🔥</td>
+          <td>在L0基础上，启用部分融合算子和昇腾友好的计算重写。</td>
       </tr>
       <tr>
           <td>2</td>
-          <td>Acceleration Feature Enhancement 🔥🔥</td>
-          <td>Default value. Enables richer acceleration features based on L0 and L1, with acceleration features typically enabled via specific parameters. Refer to the &ldquo;Feature Introduction&rdquo; section for details.</td>
+          <td>加速特性增强 🔥🔥</td>
+          <td>默认值。在L0和L1基础上启用更丰富的加速特性，加速特性通常通过特定参数启用。详情请参阅&quot;特性介绍&quot;部分。</td>
       </tr>
   </tbody>
 </table>
-<h2 id="mindspeed-core-ecosystem">MindSpeed Core ecosystem<a hidden class="anchor" aria-hidden="true" href="#mindspeed-core-ecosystem">#</a></h2>
-<p>Building upon the MindSpeed Core acceleration library, additional specialized libraries are available:</p>
+<h2 id="mindspeed-core生态系统">MindSpeed Core生态系统<a hidden class="anchor" aria-hidden="true" href="#mindspeed-core生态系统">#</a></h2>
+<p>在MindSpeed Core加速库的基础上，还提供了以下专业库：</p>
 <ul>
-<li>Large Language Model Library: <a href="https://gitcode.com/Ascend/MindSpeed-LLM">MindSpeed LLM</a></li>
-<li>Multimodal Model Library: <a href="https://gitcode.com/Ascend/MindSpeed-MM">MindSpeed MM</a></li>
-<li>Reinforcement Learning Acceleration Library: <a href="https://gitcode.com/Ascend/MindSpeed-RL">MindSpeed RL</a></li>
+<li>大语言模型库: <a href="https://gitcode.com/Ascend/MindSpeed-LLM">MindSpeed LLM</a></li>
+<li>多模态模型库: <a href="https://gitcode.com/Ascend/MindSpeed-MM">MindSpeed MM</a></li>
+<li>强化学习加速库: <a href="https://gitcode.com/Ascend/MindSpeed-RL">MindSpeed RL</a></li>
 </ul>
 
 
