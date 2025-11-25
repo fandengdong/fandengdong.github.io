@@ -1,5 +1,5 @@
 ---
-title: "使用 Mindspeed-LLM进行预训练"
+title: "使用 Mindspeed-LLM进行训练"
 date: 2025-11-14
 ---
 
