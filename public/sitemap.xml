@@ -3,12 +3,27 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>http://localhost:1313/llm/</loc>
-    <lastmod>2025-11-14T00:00:00+00:00</lastmod>
+    <lastmod>2025-12-19T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/toolbox/</loc>
     <lastmod>2025-11-06T18:00:00+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/rl/</loc>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/</loc>
+    <lastmod>2025-12-19T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/rope%E6%97%8B%E8%BD%AC%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81/</loc>
+    <lastmod>2025-12-19T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/transformer/</loc>
+    <lastmod>2025-12-19T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/</loc>
+    <lastmod>2025-12-19T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84%E7%9A%84%E6%BC%94%E8%BF%9B/</loc>
+    <lastmod>2025-12-19T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/mindspeed_llm/</loc>
     <lastmod>2025-11-14T00:00:00+00:00</lastmod>
@@ -17,9 +32,6 @@
     <lastmod>2025-11-14T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/</loc>
-    <lastmod>2025-11-14T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/</loc>
     <lastmod>2025-11-14T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/mindspeed/</loc>
@@ -45,6 +57,8 @@
   </url><url>
     <loc>http://localhost:1313/llm/vllm/optimization/</loc>
     <lastmod>2024-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/rl/verl/verl%E4%B8%ADsingle_control%E7%9A%84%E6%A0%B8%E5%BF%83%E8%AE%BE%E8%AE%A1/</loc>
   </url><url>
     <loc>http://localhost:1313/categories/</loc>
   </url><url>

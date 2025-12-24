@@ -9,6 +9,7 @@ layout: single
 
 
 <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
+    {{< img-button href="/llm/architecture/" text="Architecture" width="24" >}}
     {{< img-button href="/llm/mindspeed/" text="MindSpeed" img="/images/mindspeed-logo.png" width="24" >}}
     {{< img-button href="/llm/mindspeed_llm/" text="Mindspeed_LLM" img="/images/mindspeed-logo.png"  >}}
     {{< img-button href="/llm/vllm/" text="vLLM" img="/images/vllm-logo.png" >}}

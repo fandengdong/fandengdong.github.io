@@ -5,11 +5,12 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta name="robots" content="index, follow">
-<title>大语言模型 (LLM) | My work notes</title>
+<title>一切的开始 - Transformer架构 | My work notes</title>
 <meta name="keywords" content="">
-<meta name="description" content="关于 Transformer、ChatGPT、开源模型等的笔记">
+<meta name="description" content="自从2017年Google那群大神发表了《Attention Is All You Need》这篇&quot;石破天惊&quot;的论文后，Transformer架构就像开了挂一样，迅速席卷了整个NLP领域。从机器翻译到文本分类，从文本摘要到语言模型，再到对话系统和文本生成——可以说，只要是NLP能沾上边的任务，都少不了Transformer的身影。那么，让我们一起来揭开这位&quot;NLP界顶流&quot;的神秘面纱，看看原始论文中的Transformer到底是何方神圣！
+">
 <meta name="author" content="fandengdong">
-<link rel="canonical" href="http://localhost:1313/llm/">
+<link rel="canonical" href="http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
 <link rel="icon" href="http://localhost:1313/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
@@ -18,8 +19,7 @@
 <link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
 <meta name="theme-color" content="#2e2e33">
 <meta name="msapplication-TileColor" content="#2e2e33">
-<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/llm/index.xml" title="rss">
-<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84/">
 <noscript>
     <style>
         #theme-toggle,
@@ -71,15 +71,19 @@
         document.querySelector("html").dataset.theme = 'light';
     }
 
-</script><meta property="og:url" content="http://localhost:1313/llm/">
+</script><meta property="og:url" content="http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84/">
   <meta property="og:site_name" content="My work notes">
-  <meta property="og:title" content="大语言模型 (LLM)">
-  <meta property="og:description" content="关于 Transformer、ChatGPT、开源模型等的笔记">
+  <meta property="og:title" content="一切的开始 - Transformer架构">
+  <meta property="og:description" content="自从2017年Google那群大神发表了《Attention Is All You Need》这篇&#34;石破天惊&#34;的论文后，Transformer架构就像开了挂一样，迅速席卷了整个NLP领域。从机器翻译到文本分类，从文本摘要到语言模型，再到对话系统和文本生成——可以说，只要是NLP能沾上边的任务，都少不了Transformer的身影。那么，让我们一起来揭开这位&#34;NLP界顶流&#34;的神秘面纱，看看原始论文中的Transformer到底是何方神圣！">
   <meta property="og:locale" content="zh-CN">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2025-12-19T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-12-19T00:00:00+00:00">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="大语言模型 (LLM)">
-<meta name="twitter:description" content="关于 Transformer、ChatGPT、开源模型等的笔记">
+<meta name="twitter:title" content="一切的开始 - Transformer架构">
+<meta name="twitter:description" content="自从2017年Google那群大神发表了《Attention Is All You Need》这篇&quot;石破天惊&quot;的论文后，Transformer架构就像开了挂一样，迅速席卷了整个NLP领域。从机器翻译到文本分类，从文本摘要到语言模型，再到对话系统和文本生成——可以说，只要是NLP能沾上边的任务，都少不了Transformer的身影。那么，让我们一起来揭开这位&quot;NLP界顶流&quot;的神秘面纱，看看原始论文中的Transformer到底是何方神圣！
+">
 
 
 <script type="application/ld+json">
@@ -92,12 +96,57 @@
       "position":  1 ,
       "name": "大语言模型 (LLM)",
       "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "LLM architecture",
+      "item": "http://localhost:1313/llm/architecture/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "一切的开始 - Transformer架构",
+      "item": "http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84/"
     }
   ]
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "一切的开始 - Transformer架构",
+  "name": "一切的开始 - Transformer架构",
+  "description": "自从2017年Google那群大神发表了《Attention Is All You Need》这篇\u0026quot;石破天惊\u0026quot;的论文后，Transformer架构就像开了挂一样，迅速席卷了整个NLP领域。从机器翻译到文本分类，从文本摘要到语言模型，再到对话系统和文本生成——可以说，只要是NLP能沾上边的任务，都少不了Transformer的身影。那么，让我们一起来揭开这位\u0026quot;NLP界顶流\u0026quot;的神秘面纱，看看原始论文中的Transformer到底是何方神圣！\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "自从2017年Google那群大神发表了《Attention Is All You Need》这篇\"石破天惊\"的论文后，Transformer架构就像开了挂一样，迅速席卷了整个NLP领域。从机器翻译到文本分类，从文本摘要到语言模型，再到对话系统和文本生成——可以说，只要是NLP能沾上边的任务，都少不了Transformer的身影。那么，让我们一起来揭开这位\"NLP界顶流\"的神秘面纱，看看原始论文中的Transformer到底是何方神圣！\n",
+  "wordCount" : "5",
+  "inLanguage": "en",
+  "datePublished": "2025-12-19T00:00:00Z",
+  "dateModified": "2025-12-19T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
 </head>
-<body class="list" id="top">
+<body id="top">
     <header class="header">
     <nav class="nav">
         <div class="logo">
@@ -128,7 +177,7 @@
         <ul id="menu">
             <li>
                 <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
-                    <span class="active">大语言模型 (LLM)</span>
+                    <span>大语言模型 (LLM)</span>
                 </a>
             </li>
             <li>
@@ -155,163 +204,14 @@
   <header class="post-header">
     
     <h1 class="post-title entry-hint-parent">
-      大语言模型 (LLM)
+      一切的开始 - Transformer架构
     </h1>
-    <div class="post-description">
-      关于 Transformer、ChatGPT、开源模型等的笔记
-    </div>
     <div class="post-meta"><span title='2025-12-19 00:00:00 +0000 UTC'>December 19, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
 
 </div>
   </header> 
-  <div class="post-content"><!-- 这里是 LLM 相关的学习记录。 -->
-<div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
-    
-    
-    <a href="/llm/architecture/" style="
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem; /* ← 增加间距，比默认 0.5rem 更宽松 */
-      padding: 0.6rem 1rem;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #334155;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    ">
-      <img 
-        src="/images/default-icon.png" 
-        alt="Architecture logo"
-        style="
-          height: 24px;
-          width: auto;
-          max-width: 24px; /* ← 防止过宽 */
-          object-fit: contain;
-          vertical-align: middle;
-        "
-      />
-      Architecture
-    </a>
-
-    
-    
-    <a href="/llm/mindspeed/" style="
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem; /* ← 增加间距，比默认 0.5rem 更宽松 */
-      padding: 0.6rem 1rem;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #334155;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    ">
-      <img 
-        src="/images/mindspeed-logo.png" 
-        alt="MindSpeed logo"
-        style="
-          height: 24px;
-          width: auto;
-          max-width: 24px; /* ← 防止过宽 */
-          object-fit: contain;
-          vertical-align: middle;
-        "
-      />
-      MindSpeed
-    </a>
-
-    
-    
-    <a href="/llm/mindspeed_llm/" style="
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem; /* ← 增加间距，比默认 0.5rem 更宽松 */
-      padding: 0.6rem 1rem;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #334155;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    ">
-      <img 
-        src="/images/mindspeed-logo.png" 
-        alt="Mindspeed_LLM logo"
-        style="
-          height: 24px;
-          width: auto;
-          max-width: 100px; /* ← 防止过宽 */
-          object-fit: contain;
-          vertical-align: middle;
-        "
-      />
-      Mindspeed_LLM
-    </a>
-
-    
-    
-    <a href="/llm/vllm/" style="
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem; /* ← 增加间距，比默认 0.5rem 更宽松 */
-      padding: 0.6rem 1rem;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #334155;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    ">
-      <img 
-        src="/images/vllm-logo.png" 
-        alt="vLLM logo"
-        style="
-          height: 24px;
-          width: auto;
-          max-width: 100px; /* ← 防止过宽 */
-          object-fit: contain;
-          vertical-align: middle;
-        "
-      />
-      vLLM
-    </a>
-
-    
-    
-    <a href="/llm/sglang/" style="
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem; /* ← 增加间距，比默认 0.5rem 更宽松 */
-      padding: 0.6rem 1rem;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #334155;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    ">
-      <img 
-        src="/images/sglang-logo.png" 
-        alt="SGLang logo"
-        style="
-          height: 24px;
-          width: auto;
-          max-width: 100px; /* ← 防止过宽 */
-          object-fit: contain;
-          vertical-align: middle;
-        "
-      />
-      SGLang
-    </a>
-
-</div>
+  <div class="post-content"><p>自从2017年Google那群大神发表了《Attention Is All You Need》这篇&quot;石破天惊&quot;的论文后，Transformer架构就像开了挂一样，迅速席卷了整个NLP领域。从机器翻译到文本分类，从文本摘要到语言模型，再到对话系统和文本生成——可以说，只要是NLP能沾上边的任务，都少不了Transformer的身影。那么，让我们一起来揭开这位&quot;NLP界顶流&quot;的神秘面纱，看看原始论文中的Transformer到底是何方神圣！</p>
+<p><img alt="Transformer Architecture" loading="lazy" src="/images/transformer.png"></p>
 
 
   </div>

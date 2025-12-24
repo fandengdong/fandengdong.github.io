@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>LLM architecture on My work notes</title>
+    <link>http://localhost:1313/llm/architecture/</link>
+    <description>Recent content in LLM architecture on My work notes</description>
+    <generator>Hugo -- 0.152.2</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Fri, 19 Dec 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/llm/architecture/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>RoPE - 旋转位置编码解读</title>
+      <link>http://localhost:1313/llm/architecture/rope%E6%97%8B%E8%BD%AC%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81/</link>
+      <pubDate>Fri, 19 Dec 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/rope%E6%97%8B%E8%BD%AC%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81/</guid>
+      <description>&lt;p&gt;旋转位置编码（RoPE, Rotary Position Embedding）是一种在Transformer模型中引入相对位置信息的方法，由苏剑林等人在2021年提出。相比传统的绝对位置编码（如BERT中的可学习位置嵌入或正弦位置编码），RoPE通过将位置信息以旋转变换的方式融入注意力机制，使得模型天然具备对相对位置的感知能力。&lt;/p&gt;
+&lt;h2 id=&#34;回顾原始位置编码&#34;&gt;回顾原始位置编码&lt;/h2&gt;
+&lt;p&gt;在Transformer模型中，位置编码（Position Encoding）用于将输入序列中的每个位置映射为向量，以表示其相对位置信息。原始位置编码的实现方式有很多种，如可学习位置嵌入（Learnable Position Embedding）或正弦位置编码（Sinusoidal Position Encoding）。&lt;/p&gt;
+&lt;p&gt;假设我们的词汇表大小为&lt;code&gt;[vocab_size, embedding_dim]&lt;/code&gt;，输入句子的token长度为&lt;code&gt;seq_len&lt;/code&gt;，每个token会被转换成一个vector向量，维度为&lt;code&gt;[embedding_dim]&lt;/code&gt;，则整个输入句子的shape为&lt;code&gt;[ seq_len, embedding_dim]&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;但是，为了让模型理解序列的顺序，还需要加入位置编码(Positional Encoding)。这就是著名的公式：&lt;/p&gt;
+&lt;p&gt;$$
+PE_{(pos,2i)} = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right)
+$$&lt;/p&gt;
+&lt;p&gt;$$
+PE_{(pos,2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)
+$$&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;pos&lt;/code&gt;是位置索引，即token在序列中的位置，从0开始；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;i&lt;/code&gt;是维度索引，从0开始到$d_{model}-1$结束，表示词嵌入的维度；&lt;/li&gt;
+&lt;li&gt;$d_{model}$是词嵌入（word embedding）的维度&lt;code&gt;embedding_dim&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;观察输入句子的shape: &lt;code&gt;[seq_len, embedding_dim]&lt;/code&gt;，位置编码的时候，&lt;code&gt;pos&lt;/code&gt;对应的是token在&lt;code&gt;seq_len&lt;/code&gt;维度的位置，而维度索引&lt;code&gt;i&lt;/code&gt;对应词嵌入&lt;code&gt;embedding_dim&lt;/code&gt;的维度。&lt;/p&gt;
+&lt;p&gt;pytorch代码实现:&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;k&#34;&gt;class&lt;/span&gt; &lt;span class=&#34;nc&#34;&gt;PositionalEncoding&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;nn&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;Module&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;k&#34;&gt;def&lt;/span&gt; &lt;span class=&#34;fm&#34;&gt;__init__&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;bp&#34;&gt;self&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;d_model&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;max_len&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;=&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;5000&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;nb&#34;&gt;super&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;fm&#34;&gt;__init__&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;n&#34;&gt;pe&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;zeros&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;max_len&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;d_model&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;n&#34;&gt;position&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;arange&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;max_len&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;unsqueeze&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;1&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;float&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;n&#34;&gt;div_term&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;exp&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;arange&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;d_model&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;2&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;float&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;                            &lt;span class=&#34;o&#34;&gt;-&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;log&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;tensor&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mf&#34;&gt;10000.0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;))&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;/&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;d_model&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;))&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;n&#34;&gt;pe&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;[:,&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;::&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;2&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;sin&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;position&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;div_term&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;n&#34;&gt;pe&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;[:,&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;1&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;::&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;2&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;]&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;=&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;torch&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;cos&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;position&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;*&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;div_term&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;bp&#34;&gt;self&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;register_buffer&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s1&#34;&gt;&amp;#39;pe&amp;#39;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;pe&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;unsqueeze&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;))&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;    &lt;span class=&#34;k&#34;&gt;def&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;forward&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;bp&#34;&gt;self&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;x&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;):&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;        &lt;span class=&#34;k&#34;&gt;return&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;x&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;+&lt;/span&gt; &lt;span class=&#34;bp&#34;&gt;self&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;pe&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;[:,&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;:&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;x&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;size&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;1&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)]&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;rope-的核心思想&#34;&gt;RoPE 的核心思想&lt;/h2&gt;
+&lt;h3 id=&#34;相对位置-vs-绝对位置&#34;&gt;相对位置 vs 绝对位置&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;在传统Transformer中，位置编码是加到词嵌入上的（如 x + pos_emb），这种方式只保留了绝对位置信息。&lt;/li&gt;
+&lt;li&gt;而 RoPE 则通过将查询（Q）和键（K）向量进行旋转变换，使得注意力分数自然包含两个 token 之间的相对距离。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;旋转操作&#34;&gt;旋转操作&lt;/h3&gt;
+&lt;p&gt;对于维度为 d 的向量，RoPE 将其分成若干二维子空间（通常是相邻两个维度一组），每组应用一个二维旋转矩阵：&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>一切的开始 - Transformer架构</title>
+      <link>http://localhost:1313/llm/architecture/transformer/</link>
+      <pubDate>Fri, 19 Dec 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/transformer/</guid>
+      <description>&lt;h2 id=&#34;transformer的诞生背景&#34;&gt;Transformer的诞生背景&lt;/h2&gt;
+&lt;p&gt;在深度学习的世界里，序列建模一直是个老大难问题。传统的循环神经网络(RNN)虽然能够处理序列数据，但在处理长序列时存在梯度消失和计算效率低下的问题。而卷积神经网络(CNN)虽然并行化程度高，但在捕捉长距离依赖关系方面力不从心。&lt;/p&gt;
+&lt;p&gt;就在这个关键时刻，Google的大神们在2017年扔出了一个&amp;quot;核弹级&amp;quot;的解决方案——《Attention Is All You Need》。这篇论文彻底颠覆了人们对序列建模的认知，提出了完全基于注意力机制的Transformer架构。&lt;/p&gt;
+&lt;p&gt;&lt;img alt=&#34;Transformer Architecture&#34; loading=&#34;lazy&#34; src=&#34;http://localhost:1313/llm/architecture/transformer/transformer.png&#34;&gt;&lt;/p&gt;
+&lt;h2 id=&#34;翻译任务transformer的试验场&#34;&gt;翻译任务：Transformer的试验场&lt;/h2&gt;
+&lt;p&gt;Transformer最初是为了机器翻译任务而设计的。想象一下，你要把一句中文翻译成英文：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;中文输入&lt;/strong&gt;: &amp;ldquo;我喜欢学习人工智能&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;英文输出&lt;/strong&gt;: &amp;ldquo;I like studying artificial intelligence&amp;rdquo;&lt;/p&gt;
+&lt;p&gt;在这个过程中，模型需要理解每个词的含义，并找到它们之间的对应关系。传统的Seq2Seq模型依赖RNN来编码输入序列，但效果有限。而Transformer通过自注意力机制，能够同时关注输入序列中的所有位置，大大提升了翻译质量。&lt;/p&gt;
+&lt;h2 id=&#34;transformer的基本输入输出&#34;&gt;Transformer的基本输入输出&lt;/h2&gt;
+&lt;h3 id=&#34;输入的秘密&#34;&gt;输入的秘密&lt;/h3&gt;
+&lt;p&gt;Transformer的输入其实很简单，就是一个个token（可以是单词、子词或者字符）。假设我们的词汇表大小为&lt;code&gt;[vocab_size, embedding_dim]&lt;/code&gt;，输入句子的token长度为&lt;code&gt;seq_len&lt;/code&gt;，每个token会被转换成一个vector向量，维度为&lt;code&gt;[embedding_dim]&lt;/code&gt;，则整个输入句子的shape为&lt;code&gt;[ seq_len, embedding_dim]&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;但是，为了让模型理解序列的顺序，还需要加入位置编码(Positional Encoding)。这就是著名的公式：&lt;/p&gt;
+&lt;p&gt;$$
+PE_{(pos,2i)} = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right)
+$$&lt;/p&gt;
+&lt;p&gt;$$
+PE_{(pos,2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)
+$$&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;pos&lt;/code&gt;是位置索引，即token在序列中的位置，从0开始；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;i&lt;/code&gt;是维度索引，从0开始到$d_{model}-1$结束，表示词嵌入的维度；&lt;/li&gt;
+&lt;li&gt;$d_{model}$是词嵌入（word embedding）的维度&lt;code&gt;embedding_dim&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;观察输入句子的shape: &lt;code&gt;[seq_len, embedding_dim]&lt;/code&gt;，位置编码的时候，&lt;code&gt;pos&lt;/code&gt;对应的是token在&lt;code&gt;seq_len&lt;/code&gt;维度的位置，而维度索引&lt;code&gt;i&lt;/code&gt;对应词嵌入&lt;code&gt;embedding_dim&lt;/code&gt;的维度。&lt;/p&gt;
+&lt;h3 id=&#34;输出的魅力&#34;&gt;输出的魅力&lt;/h3&gt;
+&lt;p&gt;Transformer的输出同样是一系列token，但它还有一个特殊之处——它是一个概率分布。对于每个时间步，模型会输出词汇表中每个词的概率，然后通过贪婪搜索或束搜索来选择最合适的词。这些搜索算法构成了推理时扩展算法的基础。&lt;/p&gt;
+&lt;p&gt;补充贪婪搜索和束搜索的算法：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;贪婪搜索是一种简单直接的解码策略。在每个时间步，它总是选择具有最高概率的token作为下一个输出，不考虑后续可能的影响。优点是计算简单，速度快，内存占用少；缺点则是容易陷入局部最优，生成结果缺乏多样性。&lt;/li&gt;
+&lt;li&gt;束搜索是对贪婪搜索的改进，在每个时间步保留beam_width个最有希望的候选序列，而不是只保留一个。相比贪婪搜索能找到更优的序列，在合理的时间内探索多个可能性；缺点则是计算复杂度较高，需要调整beam_width参数，仍可能错过全局最优解。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;核心模块encoder和decoder&#34;&gt;核心模块：Encoder和Decoder&lt;/h2&gt;
+&lt;p&gt;Transformer的核心由两大部分组成：&lt;code&gt;Encoder&lt;/code&gt;和&lt;code&gt;Decoder&lt;/code&gt;。&lt;/p&gt;
+&lt;h3 id=&#34;encoder信息的加工厂&#34;&gt;Encoder：信息的加工厂&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;Encoder&lt;/code&gt;负责将输入序列转换成一系列隐藏表示。它由N个相同的层堆叠而成，每一层都包含两个子层：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;多头自注意力机制(Multi-Head Self-Attention)&lt;/li&gt;
+&lt;li&gt;位置全连接前馈网络(Position-wise Feed-Forward Networks)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;每层都有残差连接和层归一化，这使得深层网络也能稳定训练。&lt;/p&gt;
+&lt;h3 id=&#34;decoder创作的艺术家&#34;&gt;Decoder：创作的艺术家&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;Decoder&lt;/code&gt;则负责根据&lt;code&gt;Encoder&lt;/code&gt;的输出和之前生成的token来预测下一个token。它的结构比&lt;code&gt;Encoder&lt;/code&gt;稍复杂一些，包含三个子层：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;掩码多头自注意力机制(Masked Multi-Head Self-Attention)&lt;/li&gt;
+&lt;li&gt;多头注意力机制(Multi-Head Attention)&lt;/li&gt;
+&lt;li&gt;位置全连接前馈网络(Position-wise Feed-Forward Networks)&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&amp;quot;偷看&amp;quot;未来的信息。&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>综述 - Transformer架构的演进</title>
+      <link>http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84%E7%9A%84%E6%BC%94%E8%BF%9B/</link>
+      <pubDate>Fri, 19 Dec 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84%E7%9A%84%E6%BC%94%E8%BF%9B/</guid>
+      <description>&lt;h2 id=&#34;transformer架构演进从自注意力到长序列与多模态的革命性突破&#34;&gt;Transformer架构演进：从自注意力到长序列与多模态的革命性突破&lt;/h2&gt;
+&lt;p&gt;Transformer自2017年提出以来，已成为深度学习领域的基石架构，其演进历程反映了AI研究者对计算效率、长序列处理能力和跨模态应用的不懈追求。&lt;strong&gt;从最初的O(n²)计算复杂度到如今的O(n)线性复杂度，从单模态文本处理到原生多模态架构，Transformer的演进不仅解决了自身局限，更推动了大语言模型、视觉模型和多模态系统的革命性发展&lt;/strong&gt;。这些演进主要体现在注意力机制创新、位置编码改进、模型架构变体与扩展、训练推理效率优化四大方向，共同构建了现代AI系统的计算基础。&lt;/p&gt;
+&lt;h3 id=&#34;一注意力机制的演进从全局到稀疏再到状态空间模型&#34;&gt;一、注意力机制的演进：从全局到稀疏再到状态空间模型&lt;/h3&gt;
+&lt;p&gt;Transformer原始架构的核心是自注意力机制，它通过计算查询(Q)、键(K)和值(V)之间的相似度来捕捉序列内部的长距离依赖关系  。标准自注意力的计算公式为：&lt;/p&gt;
+&lt;p&gt;$$
+\text{Attention}(Q,K,V) = \text{softmax}\left( \frac{QK^\top}{\sqrt{d_k}} \right)V
+$$&lt;/p&gt;
+&lt;p&gt;其中，$Q∈ℝ^{n×d_k}$，$K∈ℝ^{n×d_k}$，$V∈ℝ^{n×d_v}$，d_k是键向量的维度。这一机制虽然强大，但计算复杂度为O(n²)，随着序列长度n的增加呈平方增长，严重限制了处理长文本的能力。&lt;/p&gt;
+&lt;p&gt;为解决这一瓶颈，研究者从多个角度对注意力机制进行了创新：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;1. 稀疏注意力机制&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;稀疏注意力通过限制每个token只能关注序列中的局部区域，将计算复杂度从O(n²)降至O(n)。主要代表包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Longformer&lt;/strong&gt;：采用滑动窗口注意力机制，每个token仅关注其周围固定窗口内的token，同时保留少数全局token以维持上下文连贯性  。其窗口注意力公式为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$
+\text{WindowAttention}(Q,K,V) = \text{softmax}\left( \frac{QK^\top}{\sqrt{d_k}} \right)V_{\text{window}}
+$$&lt;/p&gt;
+&lt;p&gt;其中，V_window是窗口内值向量的子集，窗口大小通常为512或1024个token  。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;BigBird&lt;/strong&gt;：结合三种注意力模式——随机注意力（通过Erdős-Rényi图采样）、滑动窗口注意力和全局注意力  。随机注意力使模型能够捕捉长距离依赖，同时保持O(n)的线性复杂度。其随机注意力矩阵可以表示为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$
+\text{RandomAttention}(Q,K,V) = \text{softmax}\left( \frac{QW_{\text{random}}K^\top}{\sqrt{d_k}} \right)V_{\text{random}}
+$$&lt;/p&gt;
+&lt;p&gt;其中，$W_{random}$是随机掩码矩阵，$V_{random}$是随机采样值向量的子集  。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;局部增强Mamba（LEVM）&lt;/strong&gt;：在Mamba架构中，通过动态选择性处理，对重要信息保留完整状态，对不重要信息进行压缩，实现O(n)计算复杂度和O(1)显存占用  。其核心状态方程为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$
+h_t = \overline{A}h_{t-1} + \overline{B}x_t
+$$&lt;/p&gt;
+&lt;p&gt;其中，$\overline{A}$和$\overline{B}$是动态生成的参数矩阵，允许模型根据输入选择性地保留信息  。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;2. 线性注意力机制&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;线性注意力通过数学近似技术，将注意力计算的复杂度降至O(n)，同时保持模型的表达能力。主要代表包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Performer&lt;/strong&gt;：采用核函数近似方法，将标准注意力公式中的softmax(QKᵀ)替换为核函数K(Q,K)，使得计算可以分解为O(n)的线性操作  。其核心公式为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$
+\text{LinearAttention}(Q,K,V) = \text{核函数}(Q,K)V
+$$&lt;/p&gt;
+&lt;p&gt;其中，核函数可以是高斯核、多项式核或其他类型的核函数  。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Mamba&lt;/strong&gt;：将注意力机制替换为结构化状态空间模型（SSM），通过递归计算实现长序列处理  。Mamba在S4的基础上改进，引入选择性处理机制，允许模型根据输入动态生成参数$\overline{A}$, $\overline{B}$, Δ，从而实现对信息的选择性保留和压缩  。其状态方程为：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$
+h_t = \overline{A}h_{t-1} + \overline{B}x_t,\quad y_t = Ch_t
+$$&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

@@ -1,16 +1,15 @@
 <!DOCTYPE html>
 <html lang="en" dir="auto" data-theme="auto">
 
-<head>
-	<meta name="generator" content="Hugo 0.152.2"><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta name="robots" content="index, follow">
-<title>My work notes</title>
-
-<meta name="description" content="记录论文阅读与代码实践">
+<title>LLM architecture | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="大语言模型的架构解析">
 <meta name="author" content="fandengdong">
-<link rel="canonical" href="http://localhost:1313/">
+<link rel="canonical" href="http://localhost:1313/llm/architecture/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
 <link rel="icon" href="http://localhost:1313/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
@@ -19,8 +18,8 @@
 <link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
 <meta name="theme-color" content="#2e2e33">
 <meta name="msapplication-TileColor" content="#2e2e33">
-<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/index.xml" title="rss">
-<link rel="alternate" hreflang="en" href="http://localhost:1313/">
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/llm/architecture/index.xml" title="rss">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/architecture/">
 <noscript>
     <style>
         #theme-toggle,
@@ -72,26 +71,34 @@
         document.querySelector("html").dataset.theme = 'light';
     }
 
-</script><meta property="og:url" content="http://localhost:1313/">
+</script><meta property="og:url" content="http://localhost:1313/llm/architecture/">
   <meta property="og:site_name" content="My work notes">
-  <meta property="og:title" content="欢迎来到我的工作空间">
-  <meta property="og:description" content=" 📚 我的工作笔记 这里记录我在人工智能、大语言模型（LLM）和开发工具方面的学习与实践。 欢迎一起探索技术的边界！ 🧠 RL 💬 LLM 🧰 工具箱 ">
+  <meta property="og:title" content="LLM architecture">
+  <meta property="og:description" content="大语言模型的架构解析">
   <meta property="og:locale" content="zh-CN">
   <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="欢迎来到我的工作空间">
-<meta name="twitter:description" content="记录论文阅读与代码实践">
+<meta name="twitter:title" content="LLM architecture">
+<meta name="twitter:description" content="大语言模型的架构解析">
+
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "My work notes",
-  "url": "http://localhost:1313/",
-  "description": "记录论文阅读与代码实践",
-  "logo": "http://localhost:1313/favicon.ico",
-  "sameAs": [
-      
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "LLM architecture",
+      "item": "http://localhost:1313/llm/architecture/"
+    }
   ]
 }
 </script>
@@ -142,40 +149,27 @@
             </li>
             <li>
                 <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
-                    <span class="active">欢迎来到我的工作空间</span>
+                    <span>欢迎来到我的工作空间</span>
                 </a>
             </li>
         </ul>
     </nav>
 </header>
 <main class="main"> 
-<div class="post-content"><div style="text-align: center; max-width: 700px; margin: 2rem auto; padding: 0 1rem;">
-  <h2>📚 我的工作笔记</h2>
-  <p style="font-size: 1.1em; color: #555; line-height: 1.6;">
-    这里记录我在人工智能、大语言模型（LLM）和开发工具方面的学习与实践。
-    欢迎一起探索技术的边界！
-  </p>
-<div style="display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
-  <a href="/rl/" class="btn btn-primary" style="display: inline-block; padding: 0.8rem 1.5rem; background: #f0f8ff; border-radius: 12px; text-decoration: none; color: #2c3e50; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;">
-    🧠 RL
-  </a>
-
-  <a href="/llm/" class="btn btn-primary" style="display: inline-block; padding: 0.8rem 1.5rem; background: #f0f8ff; border-radius: 12px; text-decoration: none; color: #2c3e50; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;">
-    💬 LLM
-  </a>
-
-  <a href="/toolbox/" class="btn btn-primary" style="display: inline-block; padding: 0.8rem 1.5rem; background: #f0f8ff; border-radius: 12px; text-decoration: none; color: #2c3e50; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s;">
-    🧰 工具箱
-  </a>
-
-</div>
+<header class="page-header">
+  <h1>
+    LLM architecture
+  </h1>
+  <div class="post-description">
+    大语言模型的架构解析
   </div>
-</div>
+</header>
+<div class="post-content"><p>本节尝试将大语言模型的架构进行解析，并希望同时给出代码实现，已帮助更高的理解大语言模型的构建。此外，基于transformer架构，我们希望能够将架构的解读延续到当前的多模态大模型。</p>
 
 
 </div>
 
-<article class="first-entry"> 
+<article class="post-entry"> 
   <header class="entry-header">
     <h2 class="entry-hint-parent">RoPE - 旋转位置编码解读
     </h2>
@@ -254,102 +248,6 @@ Mamba：将注意力机制替换为结构化状态空间模型（SSM），通过
   </div>
   <footer class="entry-footer"><span title='2025-12-19 00:00:00 +0000 UTC'>December 19, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
   <a class="entry-link" aria-label="post link to 综述 - Transformer架构的演进" href="http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84%E7%9A%84%E6%BC%94%E8%BF%9B/"></a>
-</article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">使用 Mindspeed-LLM进行推理
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p>本文记录了 mindspeed-llm 框架提供的推理方法，以 Qwen2.5-7B 模型为例说明推理过程。
-准备工作 推理模型的权重需要转换为 mcore 格式，方法与微调时相同，参考这里
-开启推理测试 准备好模型权重后，可以直接使用 mindspeed-llm 提供的推理脚本进行推理测试，脚本位于examples/mcore/qwen25/generate_qwen25_7b_ptd.sh
-#!/bin/bash export CUDA_DEVICE_MAX_CONNECTIONS=1 # please fill these path configurations CHECKPOINT=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp1_pp1/&#34; TOKENIZER_PATH=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B-Instruct/&#34; # Change for multinode config MASTER_ADDR=localhost MASTER_PORT=6000 NNODES=1 NODE_RANK=0 NPUS_PER_NODE=1 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES)) TP=1 PP=1 SEQ_LENGTH=32768 ... torchrun $DISTRIBUTED_ARGS inference.py \ --use-mcore-models \ ... 可以看到对于 7B 模型，采用单卡就可以进行推理。启动方式依然为 torchrun，启动脚本为 inference.py。
-推理流程 查看inference.py文件：
-from megatron.training.initialize import initialize_megatron from mindspeed_llm.tasks.inference.module import GPTModelInfer, MegatronModuleForCausalLM def main(): initialize_megatron(args_defaults={&#39;no_load_rng&#39;: True, &#39;no_load_optim&#39;: True}) args = get_args() model = MegatronModuleForCausalLM.from_pretrained( model_provider=model_provider, pretrained_model_name_or_path=args.load ) task_factory(args, model) if __name__ == &#34;__main__&#34;: main() 可推理流程的关键步骤包括：
-...</p>
-  </div>
-  <footer class="entry-footer"><span title='2025-11-14 00:00:00 +0000 UTC'>November 14, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to 使用 Mindspeed-LLM进行推理" href="http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_inference/"></a>
-</article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">使用 Mindspeed-LLM进行训练
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p>本指南记录采用mindspeed-llm进行训练的步骤，以微调为例。
-准备数据 准备数据集的jsonl文件，每个样本是一个字典，至少要包含关键字prompt和response，其中prompt为输入，response为输出。
-注意：如果提供的jsonl文件里面没有包含chat template，那么在转换数据的时候要添加prompt-type参数来提供模板。下面提供一个带了chat templated的jsonl文件样例：
-{&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet $\\triangle ABC$ have circumcenter $O$ and incenter $I$ with $\\overline{IA}\\perp\\overline{OI}$, circumradius $13$, and inradius $6$. Find $AB\\cdot AC$.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nI have a geometry problem. We have a triangle ABC with circumcenter O and incenter I....&#34;} {&#34;prompt&#34;:&#34;&lt;|im_start|&gt;system\nYou are a helpful assistant. To answer the user\&#39;s question, you first think about the reasoning process and then provide the user with the answer. The reasoning process and answer are enclosed within &lt;think&gt; &lt;\/think&gt; and &lt;answer&gt; &lt;\/answer&gt; tags, respectively, i.e., &lt;think&gt; reasoning process here &lt;\/think&gt; &lt;answer&gt; answer here &lt;\/answer&gt;.&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\nLet \\(b\\ge 2\\) be an integer. Call a positive integer \\(n\\) \\(b\\text-\\textit{eautiful}\\) if it has exactly two digits when expressed in base \\(b\\) and these two digits sum to \\(\\sqrt n\\). For example, \\(81\\) is \\(13\\text-\\textit{eautiful}\\) because \\(81 = \\underline{6} \\ \\underline{3}_{13} \\) and \\(6 &#43; 3 = \\sqrt{81}\\). Find the least integer \\(b\\ge 2\\) for which there are more than ten \\(b\\text-\\textit{eautiful}\\) integers.\nPlease reason step by step, and put your final answer within \\boxed{}.\nPlease reason step by step, and put your final answer within \\boxed{}.&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n&#34;,&#34;response&#34;:&#34;&lt;think&gt;\nThe problem defines a \&#34;b-beautiful\&#34; number as a positive integer...&#34;} 准备好jsonl文件后，利用mindspeed-llm自带的脚本preprocess_data.py来预处理数据：
-...</p>
-  </div>
-  <footer class="entry-footer"><span title='2025-11-14 00:00:00 +0000 UTC'>November 14, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to 使用 Mindspeed-LLM进行训练" href="http://localhost:1313/llm/mindspeed_llm/mindspeed_llm_finetune/"></a>
-</article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">开始使用 Mindspeed 进行大模型训练
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p>本文通过一个完整示例代码演示如何使用 Mindspeed 框架进行分布式大模型训练。
-环境版本信息
-Mindspeed commit ID: 89f4632d Megatron 分支: core_v0.12.1 CANN: 8.2.RC1 PyTorch: 2.5.1 1. 初始化分布式并行环境 Mindspeed 基于 Megatron 构建，支持张量并行（TP）和流水线并行（PP）。在训练前，必须正确初始化分布式环境：
-import os import torch import mindspeed.megatron_adaptor # 关键：确保 Mindspeed 与 Megatron API 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): # 清理已有状态（防止重复初始化） parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式设置 rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0)) world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # 初始化 Megatron 并行状态 parallel_state.initialize_model_parallel( tensor_model_parallel_size=tensor_model_parallel_size, pipeline_model_parallel_size=pipeline_model_parallel_size ) 关键点说明： 必须显式导入 mindspeed.megatron_adaptor，以启用兼容层。 除了标准的 torch.distributed.init_process_group，还需调用 parallel_state.initialize_model_parallel 来激活 TP/PP 支持。 需根据实际训练配置传入 tensor_model_parallel_size 和 pipeline_model_parallel_size。
-Mindspeed 模型初始化 Mindspeed 使用 Megatron Core 的模块化设计构建模型。以下是一个最小 GPT 模型的构建示例：
-...</p>
-  </div>
-  <footer class="entry-footer"><span title='2025-11-11 00:00:00 +0000 UTC'>November 11, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to 开始使用 Mindspeed 进行大模型训练" href="http://localhost:1313/llm/mindspeed/get_started_with_mindspeed/"></a>
-</article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">Mindspeed基本介绍
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p>MindSpeed的核心目的是高效地适配和加速基于Megatron-LM的大模型，使其能够在华为昇腾AI硬件上进行训练和推理。其主要功能包括：
-框架兼容性：将原生Megatron-LM代码适配到昇腾NPU架构，确保功能正确性。 性能优化：通过算子融合、内存优化和通信加速等技术提升训练和推理效率。 多级加速：提供可配置的优化层级（如基础兼容性、亲和性增强、全面加速），用户可根据需求启用。 生态集成：与CANN和MindSpore等昇腾软件栈深度集成，实现无缝的软硬件协同优化。 简而言之，MindSpeed使基于Megatron的大模型能够在昇腾设备上正确运行、快速运行和可靠运行。
-一行代码适配Megatron代码 import torch import mindspeed.megatron_adaptor # 新增代码行 加速特性层级说明 MindSpeed Core加速特性分为三个层级。用户可以通过在启动脚本中设置--optimization-level {level}参数来根据实际需求选择要启用的优化级别。该参数支持以下配置：
-等级 等级名称 描述 0 基础功能兼容性 提供Megatron-LM框架与NPU的基础功能兼容性。 1 亲和性增强 🔥 在L0基础上，启用部分融合算子和昇腾友好的计算重写。 2 加速特性增强 🔥🔥 默认值。在L0和L1基础上启用更丰富的加速特性，加速特性通常通过特定参数启用。详情请参阅&#34;特性介绍&#34;部分。 MindSpeed Core生态系统 在MindSpeed Core加速库的基础上，还提供了以下专业库：
-大语言模型库: MindSpeed LLM 多模态模型库: MindSpeed MM 强化学习加速库: MindSpeed RL </p>
-  </div>
-  <footer class="entry-footer"><span title='2025-11-10 00:00:00 +0000 UTC'>November 10, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to Mindspeed基本介绍" href="http://localhost:1313/llm/mindspeed/introduction_with_mindspeed/"></a>
-</article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">Deploying vLLM in Production
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p>Getting Started with vLLM Deployment Deploying large language models efficiently requires careful consideration of hardware resources and configuration parameters.
-Installation Installing vLLM is straightforward using pip:
-pip install vllm </p>
-  </div>
-  <footer class="entry-footer"><span title='2024-01-20 00:00:00 +0000 UTC'>January 20, 2024</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to Deploying vLLM in Production" href="http://localhost:1313/llm/vllm/deployment/"></a>
-</article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">vLLM Optimization Techniques
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p>Introduction In this post, we’ll explore the key optimization techniques that make vLLM one of the most efficient inference engines for large language models.
-Key Optimizations PagedAttention PagedAttention is vLLM’s core innovation that efficiently manages the GPU memory for attention keys and values. This technique significantly reduces memory fragmentation and allows for serving more requests simultaneously.
-Continuous Batching Unlike traditional static batching, vLLM employs continuous batching which dynamically adds new requests to the batch as they arrive, improving throughput without increasing latency.
-...</p>
-  </div>
-  <footer class="entry-footer"><span title='2024-01-15 00:00:00 +0000 UTC'>January 15, 2024</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to vLLM Optimization Techniques" href="http://localhost:1313/llm/vllm/optimization/"></a>
 </article>
     </main>
     

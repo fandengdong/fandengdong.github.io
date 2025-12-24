@@ -7,5 +7,12 @@
     <generator>Hugo -- 0.152.2</generator>
     <language>zh-CN</language>
     <atom:link href="http://localhost:1313/rl/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title></title>
+      <link>http://localhost:1313/rl/verl/verl%E4%B8%ADsingle_control%E7%9A%84%E6%A0%B8%E5%BF%83%E8%AE%BE%E8%AE%A1/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/rl/verl/verl%E4%B8%ADsingle_control%E7%9A%84%E6%A0%B8%E5%BF%83%E8%AE%BE%E8%AE%A1/</guid>
+      <description></description>
+    </item>
   </channel>
 </rss>
