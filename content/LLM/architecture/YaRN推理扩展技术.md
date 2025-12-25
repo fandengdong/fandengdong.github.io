@@ -41,7 +41,7 @@ YARN 在 NTK-aware scaling 基础上引入了以下关键改进：
 $$
 \text{RoPE}_m(x) = 
 \begin{bmatrix}
-\cos(m\theta_0) & -\sin(m\theta_0) \\
+\cos(m\theta_0) & -\sin(m\theta_0) \\\\
 \sin(m\theta_0) & \cos(m\theta_0)
 \end{bmatrix}
 \begin{bmatrix}
@@ -117,8 +117,8 @@ def get_yarn_rpe(q_len, dim, original_max_pos, target_max_pos, device, dtype):
 
 YaRN 实际常用策略（简化版）：
 
-- 如果当前位置 m≤$L_train$：用原始 RoPE（θi）
-- 如果$m>L_{train}$：用缩放 RoPE（θi′）
+- 如果当前位置 m≤$L_{train}$：用原始 RoPE（θ_i）
+- 如果$m>L_{train}$：用缩放 RoPE（θ_{i′}）
 - 在边界附近（比如 $m∈[L_{train}−Δ,L_{train}+Δ]$）用线性或高斯加权混合两者
 
 不过，在开源实现中，最常用的是“全局使用缩放后的 base，但保留原始高频结构”，并通过实验调整 α 来平衡长短程性能。
