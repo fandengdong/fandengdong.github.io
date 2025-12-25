@@ -23,7 +23,7 @@ PE_{(pos,2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)
 $$
 
 - `pos`是位置索引，即token在序列中的位置，从0开始；
-- `i`是维度索引，从0开始到$d_{model}-1$结束，表示词嵌入的维度；
+- `i`是维度索引，从0开始到$(d_{model}-1)/2$结束，表示词嵌入的维度；
 - $d_{model}$是词嵌入（word embedding）的维度`embedding_dim`
 
 观察输入句子的shape: `[seq_len, embedding_dim]`，位置编码的时候，`pos`对应的是token在`seq_len`维度的位置，而维度索引`i`对应词嵌入`embedding_dim`的维度。
@@ -121,7 +121,7 @@ class RotaryPositionEmbedding(nn.Module):
         Apply rotary position embedding to input tensor.
 
         Args:
-            x: input tensor of shape [..., seq_len, dim]
+            x: input tensor of shape [bs, seq_len, dim]
             seq_dim: the dimension corresponding to sequence length (default: -2)
 
         Returns:
@@ -135,10 +135,10 @@ class RotaryPositionEmbedding(nn.Module):
         sin = self.sin[:seq_len, :].unsqueeze(0)
 
         # Split x into even and odd parts (for rotation)
-        x1, x2 = x.chunk(2, dim=-1)  # each: [..., seq_len, dim//2]
+        x1, x2 = x.chunk(2, dim=-1)  # each: [bs seq_len, dim//2]
 
         # Apply rotation: [x1, x2] -> [x1*cos - x2*sin, x1*sin + x2*cos]
-        rotated_x1 = x1 * cos[..., :self.dim//2] - x2 * sin[..., :self.dim//2]
+        rotated_x1 = x1 * cos[..., :self.dim//2] - x2 * sin[..., :self.dim//2] # [bs, seq_len, dim//2]
         rotated_x2 = x1 * sin[..., :self.dim//2] + x2 * cos[..., :self.dim//2]
 
         return torch.cat((rotated_x1, rotated_x2), dim=-1)
@@ -164,3 +164,16 @@ output = torch.matmul(attn_weights, v)
 - LLaMA / LLaMA2 / Mistral 等大模型均采用 RoPE
 - 支持 动态长度（只要不超过预设 max_seq_len）
 - 可扩展为 线性缩放（NTK-aware） 或 YaRN 等变体以支持超长上下文
+
+## RoPE原理演示
+
+![RoPE原理演示](RoPE.jpg)
+
+在Transformer模型中，传入的张量通常具有形状[batch_size, seq_len, hidden_dim]。为了应用RoPE，我们主要关注seq_len（序列长度）和hidden_dim（隐藏层维度）两个维度。假设这个张量为X，其形状为[token_index, hidden_index]，如上图中的二维网格所示。
+
+在旋转过程中，我们将hidden_dim维度按每两个相邻维度为一组进行分组，并使用旋转矩阵对每组进行旋转变换，如图中所示。关键在于理解旋转矩阵的索引是如何映射到二维网格中的，这里的索引涉及：
+
+- token索引（对应公式中的m）：表示序列中每个token的位置
+- hidden维度索引（对应公式中的i）：表示嵌入向量中的维度位置
+- 
+通过这种分组旋转操作，RoPE能够将位置信息有效地编码到向量的内部表示中，使得模型能够感知token之间的相对位置关系。

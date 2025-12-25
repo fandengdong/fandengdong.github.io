@@ -177,6 +177,32 @@
 
 <article class="first-entry"> 
   <header class="entry-header">
+    <h2 class="entry-hint-parent">MOE - 混合专家架构
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p></p>
+  </div>
+  <footer class="entry-footer"><span title='2025-12-25 00:00:00 +0000 UTC'>December 25, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to MOE - 混合专家架构" href="http://localhost:1313/llm/architecture/yarn%E6%8E%A8%E7%90%86%E6%89%A9%E5%B1%95%E6%8A%80%E6%9C%AF/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">MOE - 混合专家架构
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。
+MoE 的核心思想 🎯 目标： 扩大模型参数量（提升表达能力） 保持每次前向计算的 FLOPs 基本不变（高效推理） 🔑 关键机制： 模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。 引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。 通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。 ✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。
+</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-12-24 00:00:00 +0000 UTC'>December 24, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to MOE - 混合专家架构" href="http://localhost:1313/llm/architecture/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
     <h2 class="entry-hint-parent">RoPE - 旋转位置编码解读
     </h2>
   </header>
@@ -187,13 +213,13 @@
 但是，为了让模型理解序列的顺序，还需要加入位置编码(Positional Encoding)。这就是著名的公式：
 $$ PE_{(pos,2i)} = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right) $$
 $$ PE_{(pos,2i&#43;1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right) $$
-pos是位置索引，即token在序列中的位置，从0开始； i是维度索引，从0开始到$d_{model}-1$结束，表示词嵌入的维度； $d_{model}$是词嵌入（word embedding）的维度embedding_dim 观察输入句子的shape: [seq_len, embedding_dim]，位置编码的时候，pos对应的是token在seq_len维度的位置，而维度索引i对应词嵌入embedding_dim的维度。
+pos是位置索引，即token在序列中的位置，从0开始； i是维度索引，从0开始到$(d_{model}-1)/2$结束，表示词嵌入的维度； $d_{model}$是词嵌入（word embedding）的维度embedding_dim 观察输入句子的shape: [seq_len, embedding_dim]，位置编码的时候，pos对应的是token在seq_len维度的位置，而维度索引i对应词嵌入embedding_dim的维度。
 pytorch代码实现:
 class PositionalEncoding(nn.Module): def __init__(self, d_model, max_len=5000): super().__init__() pe = torch.zeros(max_len, d_model) position = torch.arange(0, max_len).unsqueeze(1).float() div_term = torch.exp(torch.arange(0, d_model, 2).float() * -(torch.log(torch.tensor(10000.0)) / d_model)) pe[:, 0::2] = torch.sin(position * div_term) pe[:, 1::2] = torch.cos(position * div_term) self.register_buffer(&#39;pe&#39;, pe.unsqueeze(0)) def forward(self, x): return x &#43; self.pe[:, :x.size(1)] RoPE 的核心思想 相对位置 vs 绝对位置 在传统Transformer中，位置编码是加到词嵌入上的（如 x &#43; pos_emb），这种方式只保留了绝对位置信息。 而 RoPE 则通过将查询（Q）和键（K）向量进行旋转变换，使得注意力分数自然包含两个 token 之间的相对距离。 旋转操作 对于维度为 d 的向量，RoPE 将其分成若干二维子空间（通常是相邻两个维度一组），每组应用一个二维旋转矩阵：
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-12-19 00:00:00 +0000 UTC'>December 19, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to RoPE - 旋转位置编码解读" href="http://localhost:1313/llm/architecture/rope%E6%97%8B%E8%BD%AC%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81/"></a>
+  <a class="entry-link" aria-label="post link to RoPE - 旋转位置编码解读" href="http://localhost:1313/llm/architecture/rope/"></a>
 </article>
 
 <article class="post-entry"> 
@@ -336,21 +362,12 @@ pip install vllm </p>
   <footer class="entry-footer"><span title='2024-01-20 00:00:00 +0000 UTC'>January 20, 2024</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
   <a class="entry-link" aria-label="post link to Deploying vLLM in Production" href="http://localhost:1313/llm/vllm/deployment/"></a>
 </article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">vLLM Optimization Techniques
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p>Introduction In this post, we’ll explore the key optimization techniques that make vLLM one of the most efficient inference engines for large language models.
-Key Optimizations PagedAttention PagedAttention is vLLM’s core innovation that efficiently manages the GPU memory for attention keys and values. This technique significantly reduces memory fragmentation and allows for serving more requests simultaneously.
-Continuous Batching Unlike traditional static batching, vLLM employs continuous batching which dynamically adds new requests to the batch as they arrive, improving throughput without increasing latency.
-...</p>
-  </div>
-  <footer class="entry-footer"><span title='2024-01-15 00:00:00 +0000 UTC'>January 15, 2024</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to vLLM Optimization Techniques" href="http://localhost:1313/llm/vllm/optimization/"></a>
-</article>
+<footer class="page-footer">
+  <nav class="pagination">
+    <a class="next" href="http://localhost:1313/page/2/">Next&nbsp;&nbsp;»
+    </a>
+  </nav>
+</footer>
     </main>
     
 <footer class="footer">

@@ -6,13 +6,46 @@
     <description>Recent content in 欢迎来到我的工作空间 on My work notes</description>
     <generator>Hugo -- 0.152.2</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Fri, 19 Dec 2025 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 25 Dec 2025 00:00:00 +0000</lastBuildDate>
     <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>MOE - 混合专家架构</title>
+      <link>http://localhost:1313/llm/architecture/yarn%E6%8E%A8%E7%90%86%E6%89%A9%E5%B1%95%E6%8A%80%E6%9C%AF/</link>
+      <pubDate>Thu, 25 Dec 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/yarn%E6%8E%A8%E7%90%86%E6%89%A9%E5%B1%95%E6%8A%80%E6%9C%AF/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>MOE - 混合专家架构</title>
+      <link>http://localhost:1313/llm/architecture/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</link>
+      <pubDate>Wed, 24 Dec 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</guid>
+      <description>&lt;p&gt;混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。&lt;/p&gt;
+&lt;h2 id=&#34;moe-的核心思想&#34;&gt;MoE 的核心思想&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;🎯 目标：
+&lt;ul&gt;
+&lt;li&gt;扩大模型参数量（提升表达能力）&lt;/li&gt;
+&lt;li&gt;保持每次前向计算的 FLOPs 基本不变（高效推理）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;🔑 关键机制：
+&lt;ul&gt;
+&lt;li&gt;模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。&lt;/li&gt;
+&lt;li&gt;引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。&lt;/li&gt;
+&lt;li&gt;通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。&lt;/p&gt;
+&lt;/blockquote&gt;</description>
+    </item>
+    <item>
       <title>RoPE - 旋转位置编码解读</title>
-      <link>http://localhost:1313/llm/architecture/rope%E6%97%8B%E8%BD%AC%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81/</link>
+      <link>http://localhost:1313/llm/architecture/rope/</link>
       <pubDate>Fri, 19 Dec 2025 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/llm/architecture/rope%E6%97%8B%E8%BD%AC%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81/</guid>
+      <guid>http://localhost:1313/llm/architecture/rope/</guid>
       <description>&lt;p&gt;旋转位置编码（RoPE, Rotary Position Embedding）是一种在Transformer模型中引入相对位置信息的方法，由苏剑林等人在2021年提出。相比传统的绝对位置编码（如BERT中的可学习位置嵌入或正弦位置编码），RoPE通过将位置信息以旋转变换的方式融入注意力机制，使得模型天然具备对相对位置的感知能力。&lt;/p&gt;
 &lt;h2 id=&#34;回顾原始位置编码&#34;&gt;回顾原始位置编码&lt;/h2&gt;
 &lt;p&gt;在Transformer模型中，位置编码（Position Encoding）用于将输入序列中的每个位置映射为向量，以表示其相对位置信息。原始位置编码的实现方式有很多种，如可学习位置嵌入（Learnable Position Embedding）或正弦位置编码（Sinusoidal Position Encoding）。&lt;/p&gt;
@@ -26,7 +59,7 @@ PE_{(pos,2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)
 $$&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;pos&lt;/code&gt;是位置索引，即token在序列中的位置，从0开始；&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;i&lt;/code&gt;是维度索引，从0开始到$d_{model}-1$结束，表示词嵌入的维度；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;i&lt;/code&gt;是维度索引，从0开始到$(d_{model}-1)/2$结束，表示词嵌入的维度；&lt;/li&gt;
 &lt;li&gt;$d_{model}$是词嵌入（word embedding）的维度&lt;code&gt;embedding_dim&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;观察输入句子的shape: &lt;code&gt;[seq_len, embedding_dim]&lt;/code&gt;，位置编码的时候，&lt;code&gt;pos&lt;/code&gt;对应的是token在&lt;code&gt;seq_len&lt;/code&gt;维度的位置，而维度索引&lt;code&gt;i&lt;/code&gt;对应词嵌入&lt;code&gt;embedding_dim&lt;/code&gt;的维度。&lt;/p&gt;
