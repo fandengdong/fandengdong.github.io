@@ -177,3 +177,7 @@ output = torch.matmul(attn_weights, v)
 - hidden维度索引（对应公式中的i）：表示嵌入向量中的维度位置
 - 
 通过这种分组旋转操作，RoPE能够将位置信息有效地编码到向量的内部表示中，使得模型能够感知token之间的相对位置关系。
+
+## Reference
+
+1. [RoPE: Rotary Position Embedding](https://arxiv.org/abs/2104.09864)

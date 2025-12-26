@@ -139,3 +139,7 @@ YaRN 实际常用策略（简化版）：
 | 原始 RoPE | $m \cdot \frac{1}{b^{2i/d}}$ | 训练长度内好，外推差 |
 | NTK-scaling | $m \cdot \frac{1}{(bs^{d/(d-2)})^{2i/d}} = \frac{m}{s^{2i/(d-2)}} \cdot \frac{1}{b^{2i/d}}$ | 全局缩放，短距精度损失 |
 | YaRN | $m \cdot \frac{1}{(bs^{d/(d-2)})^{2i/d}}$，但 $s = \frac{L_{\text{target}}}{L_{\text{train}}} - \alpha$，且可加平滑 | 保留更多高频信息，效果更好 |
+
+## Reference
+
+1. [YaRN: Efficient Context Window Extension of Large Language Models](https://arxiv.org/abs/2309.00071)
