@@ -77,10 +77,10 @@ $$
 > 它是一个额外的小型线性层，输入是 token 表示 $x_i$，输出是 $E$ 个专家的打分。  
 > 它是 MoE 模块的一部分，与专家一起训练。
 
-假定门控网络的输入为X: [bs, seq_len, hidden_dim]，则门控网络的权重参数为W: [hidden_dim, E],其中E为 MoE 的专家数量：
+假定门控网络的输入为X: [bs, seq_len, hidden]，则门控网络的权重参数为W: [hidden, E],其中E为 MoE 的专家数量：
 
 $$
-\text{logits} = W_g X， 其中W_g \in \mathbb{R}^{E \times \text{hidden\_dim}}
+\text{logits} = W_g X， 其中W_g \in \mathbb{R}^{E \times \text{hidden}}
 $$
 
 然后接一个softmax得到概率分布：

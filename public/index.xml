@@ -9,17 +9,37 @@
     <lastBuildDate>Thu, 25 Dec 2025 00:00:00 +0000</lastBuildDate>
     <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>MOE - 混合专家架构</title>
+      <title>YaRN -  旋转位置编码拓展</title>
       <link>http://localhost:1313/llm/architecture/yarn%E6%8E%A8%E7%90%86%E6%89%A9%E5%B1%95%E6%8A%80%E6%9C%AF/</link>
       <pubDate>Thu, 25 Dec 2025 00:00:00 +0000</pubDate>
       <guid>http://localhost:1313/llm/architecture/yarn%E6%8E%A8%E7%90%86%E6%89%A9%E5%B1%95%E6%8A%80%E6%9C%AF/</guid>
-      <description></description>
+      <description>&lt;p&gt;旋转位置编码（RoPE, Rotary Position Embedding）是一种在Transformer模型中引入相对位置信息 的方法，由苏剑林等Credo在2021年提出。相比传统的绝对位置编码（如BERT中的可学习位置嵌入或正弦位置编码），RoPE通过将位置信息以旋变换的方式融入注意力机制，使得模型可以自然地感知相对位置信息。&lt;/p&gt;
+&lt;p&gt;但是在实践中，我们往往发现有些应用需要处理更长的序列，而模型在训练时候的输入序列长度往往有限，这时RoPE就无法满足需求。我们需要一个能够将位置编码进行外推的技术。YARN（Yet Another RoPE-based Attention Network）是一种用于扩展大语言模型上下文长度的技术，它是在RoPE（Rotary Position Embedding）基础上进行改进的，旨在让模型在训练时使用较短上下文，但在推理时能有效处理远超训练长度的输入序列。&lt;/p&gt;
+&lt;h2 id=&#34;背景为什么需要-yarn&#34;&gt;背景：为什么需要 YARN？&lt;/h2&gt;
+&lt;h3 id=&#34;1-位置编码的外推问题&#34;&gt;1. 位置编码的外推问题&lt;/h3&gt;
+&lt;p&gt;大多数大语言模型（如 LLaMA、ChatGLM 等）使用 RoPE（旋转位置编码） 来注入位置信息。RoPE 的优点是具有良好的相对位置建模能力，但其缺点是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;训练时最大上下文长度有限&lt;/strong&gt;（比如 2048 或 4096）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;直接推理更长序列时性能急剧下降&lt;/strong&gt;（因为 RoPE 中的频率参数未覆盖更长距离）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;2-已有方法的局限&#34;&gt;2. 已有方法的局限&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;NTK-aware scaling（Neural Tangent Kernel 缩放）&lt;/strong&gt;：通过缩放 RoPE 的 base 频率来“拉伸”位置编码，但会牺牲短距离精度。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;YaRN 提出了一种更精细的插值 + 缩放策略&lt;/strong&gt;，在保持短程精度的同时提升长程泛化能力。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;yarn-的核心思想&#34;&gt;YARN 的核心思想&lt;/h2&gt;
+&lt;p&gt;YARN 在 NTK-aware scaling 基础上引入了以下关键改进：&lt;/p&gt;
+&lt;h3 id=&#34;1-局部窗口内保持原始-rope不缩放&#34;&gt;1. 局部窗口内保持原始 RoPE（不缩放）&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;对于位置 ≤ 原始训练长度（如 32K），使用原始 RoPE，保留高精度。
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&#34;2-对超出部分使用缩放后的-rope&#34;&gt;2. 对超出部分使用缩放后的 RoPE&lt;/h3&gt;
+&lt;p&gt;对于位置 &amp;gt; 训练长度，使用经过缩放的 base 频率（类似 NTK 方法）。&lt;/p&gt;</description>
     </item>
     <item>
       <title>MOE - 混合专家架构</title>
-      <link>http://localhost:1313/llm/architecture/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</link>
+      <link>http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</link>
       <pubDate>Wed, 24 Dec 2025 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/llm/architecture/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</guid>
+      <guid>http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</guid>
       <description>&lt;p&gt;混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。&lt;/p&gt;
 &lt;h2 id=&#34;moe-的核心思想&#34;&gt;MoE 的核心思想&lt;/h2&gt;
 &lt;ul&gt;
@@ -39,7 +59,19 @@
 &lt;/ul&gt;
 &lt;blockquote&gt;
 &lt;p&gt;✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。&lt;/p&gt;
-&lt;/blockquote&gt;</description>
+&lt;/blockquote&gt;
+&lt;h2 id=&#34;moe给transformer架构带来的改变&#34;&gt;MoE给Transformer架构带来的改变&lt;/h2&gt;
+&lt;p&gt;下面我们从 Transformer 架构出发，深入讲解 MoE（Mixture of Experts）的数学形式、门控机制来源、专家模块在 Transformer 中的具体位置与作用&lt;/p&gt;
+&lt;h3 id=&#34;moe-在-transformer-中的位置&#34;&gt;MoE 在 Transformer 中的位置&lt;/h3&gt;
+&lt;p&gt;在标准 Transformer 中，每个 Transformer 层包含两个核心子模块：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;多头注意力（Multi-Head Attention, MHA）&lt;/li&gt;
+&lt;li&gt;前馈网络（Feed-Forward Network, FFN）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;✅ MoE 通常只替换 FFN 部分，而保留 MHA 不变。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;也就是说，一个 MoE Transformer 层的结构为：&lt;/p&gt;</description>
     </item>
     <item>
       <title>RoPE - 旋转位置编码解读</title>
