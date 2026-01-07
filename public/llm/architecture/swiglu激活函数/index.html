@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>SwiGLU激活函数解析 | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。
+
+一、SwiGLU 的由来
+SwiGLU 最早由 Shazeer (2020) 在论文《GLU Variants Improve Transformer》中系统性地提出并评估。该工作探索了多种基于 Gated Linear Unit (GLU) 的激活函数变体，并发现 SwiGLU 在语言建模任务中表现最优。
+背景：GLU（Gated Linear Unit）
+GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：
+[
+\text{GLU}(x) = (W_1 x &#43; b_1) \otimes \sigma(W_2 x &#43; b_2)
+]
+其中：
+
+( \otimes ) 表示逐元素乘法（Hadamard product），
+( \sigma ) 是 Sigmoid 激活函数。
+
+GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。
+SwiGLU 的改进
+SwiGLU 将 GLU 中的 Sigmoid 替换为 Swish（也称 SiLU）激活函数：">
+<meta name="author" content="fandengdong">
+<link rel="canonical" href="http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><meta property="og:url" content="http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/">
+  <meta property="og:site_name" content="My work notes">
+  <meta property="og:title" content="SwiGLU激活函数解析">
+  <meta property="og:description" content="SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。
+一、SwiGLU 的由来 SwiGLU 最早由 Shazeer (2020) 在论文《GLU Variants Improve Transformer》中系统性地提出并评估。该工作探索了多种基于 Gated Linear Unit (GLU) 的激活函数变体，并发现 SwiGLU 在语言建模任务中表现最优。
+背景：GLU（Gated Linear Unit） GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：
+[ \text{GLU}(x) = (W_1 x &#43; b_1) \otimes \sigma(W_2 x &#43; b_2) ]
+其中：
+( \otimes ) 表示逐元素乘法（Hadamard product）， ( \sigma ) 是 Sigmoid 激活函数。 GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。
+SwiGLU 的改进 SwiGLU 将 GLU 中的 Sigmoid 替换为 Swish（也称 SiLU）激活函数：">
+  <meta property="og:locale" content="zh-CN">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2026-01-07T00:00:00+00:00">
+    <meta property="article:modified_time" content="2026-01-07T00:00:00+00:00">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="SwiGLU激活函数解析">
+<meta name="twitter:description" content="SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。
+
+一、SwiGLU 的由来
+SwiGLU 最早由 Shazeer (2020) 在论文《GLU Variants Improve Transformer》中系统性地提出并评估。该工作探索了多种基于 Gated Linear Unit (GLU) 的激活函数变体，并发现 SwiGLU 在语言建模任务中表现最优。
+背景：GLU（Gated Linear Unit）
+GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：
+[
+\text{GLU}(x) = (W_1 x &#43; b_1) \otimes \sigma(W_2 x &#43; b_2)
+]
+其中：
+
+( \otimes ) 表示逐元素乘法（Hadamard product），
+( \sigma ) 是 Sigmoid 激活函数。
+
+GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。
+SwiGLU 的改进
+SwiGLU 将 GLU 中的 Sigmoid 替换为 Swish（也称 SiLU）激活函数：">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "LLM architecture",
+      "item": "http://localhost:1313/llm/architecture/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "SwiGLU激活函数解析",
+      "item": "http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "SwiGLU激活函数解析",
+  "name": "SwiGLU激活函数解析",
+  "description": "SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。\n一、SwiGLU 的由来 SwiGLU 最早由 Shazeer (2020) 在论文《GLU Variants Improve Transformer》中系统性地提出并评估。该工作探索了多种基于 Gated Linear Unit (GLU) 的激活函数变体，并发现 SwiGLU 在语言建模任务中表现最优。\n背景：GLU（Gated Linear Unit） GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：\n[ \\text{GLU}(x) = (W_1 x + b_1) \\otimes \\sigma(W_2 x + b_2) ]\n其中：\n( \\otimes ) 表示逐元素乘法（Hadamard product）， ( \\sigma ) 是 Sigmoid 激活函数。 GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。\nSwiGLU 的改进 SwiGLU 将 GLU 中的 Sigmoid 替换为 Swish（也称 SiLU）激活函数：\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。\n一、SwiGLU 的由来 SwiGLU 最早由 Shazeer (2020) 在论文《GLU Variants Improve Transformer》中系统性地提出并评估。该工作探索了多种基于 Gated Linear Unit (GLU) 的激活函数变体，并发现 SwiGLU 在语言建模任务中表现最优。\n背景：GLU（Gated Linear Unit） GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：\n[ \\text{GLU}(x) = (W_1 x + b_1) \\otimes \\sigma(W_2 x + b_2) ]\n其中：\n( \\otimes ) 表示逐元素乘法（Hadamard product）， ( \\sigma ) 是 Sigmoid 激活函数。 GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。\nSwiGLU 的改进 SwiGLU 将 GLU 中的 Sigmoid 替换为 Swish（也称 SiLU）激活函数：\n[ \\text{Swish}(z) = z \\cdot \\sigma(z) = \\frac{z}{1 + e^{-z}} ]\n因此，SwiGLU 定义为：\n[ \\text{SwiGLU}(x) = \\text{Swish}(W_1 x + b_1) \\otimes (W_2 x + b_2) ]\n注意：有些实现中会将偏置项省略（尤其在大规模 Transformer 中），且权重维度通常为输入维度的倍数（如 2/3 倍或 4 倍扩展）。\n二、基本原理 SwiGLU 的核心思想是：\n将输入 ( x \\in \\mathbb{R}^d ) 投影到一个更高维空间（如 ( \\mathbb{R}^{2r} )）， 将该高维向量拆分为两部分：( a ) 和 ( b )（各 ( r ) 维）， 对 ( a ) 应用 Swish 激活，再与 ( b ) 逐元素相乘， 最后投影回原始维度。 这种结构比标准 FFN（两个线性层 + ReLU/GELU）更具表达能力，因为门控机制允许模型动态地“关闭”某些通道。\n三、详细数学细节 设输入 ( x \\in \\mathbb{R}^d )，SwiGLU 层包含两个可学习权重矩阵 ( W_1, W_2 \\in \\mathbb{R}^{r \\times d} ) 和可选偏置 ( b_1, b_2 \\in \\mathbb{R}^r )。\n线性投影： [ a = W_1 x + b_1 \\quad (\\in \\mathbb{R}^r) \\ b = W_2 x + b_2 \\quad (\\in \\mathbb{R}^r) ]\nSwish 激活： [ \\text{Swish}(a) = a \\cdot \\sigma(a) = \\frac{a}{1 + e^{-a}} ]\n门控乘积： [ h = \\text{Swish}(a) \\odot b \\quad (\\in \\mathbb{R}^r) ]\n输出投影（可选，取决于上下文）： 若 SwiGLU 作为 FFN 的中间层，则通常还有一个输出投影 ( W_3 \\in \\mathbb{R}^{d \\times r} )： [ y = W_3 h ]\n注意：在 LLaMA 等模型中，FFN 结构为：\n先用两个并行线性层将 ( x ) 映射到 ( (r, r) )， 应用 SwiGLU 得到 ( h \\in \\mathbb{R}^r )， 再用一个线性层映射回 ( d )。 通常 ( r = \\frac{4d}{3} ) 并向上取整为 256 的倍数（LLaMA 的做法）。\n四、PyTorch 实现 下面是一个完整的、可运行的 SwiGLU 模块实现，包括 FFN 形式（带输入/输出投影）：\nimport torch import torch.nn as nn import torch.nn.functional as F class SwiGLU(nn.Module): def __init__(self, input_dim: int, hidden_dim: int, bias: bool = True): \"\"\" SwiGLU 前馈网络模块。 Args: input_dim: 输入维度 d hidden_dim: 中间维度 r（通常 \u003e input_dim） bias: 是否使用偏置 \"\"\" super().__init__() self.w1 = nn.Linear(input_dim, hidden_dim, bias=bias) self.w2 = nn.Linear(input_dim, hidden_dim, bias=bias) self.w3 = nn.Linear(hidden_dim, input_dim, bias=bias) def forward(self, x: torch.Tensor) -\u003e torch.Tensor: # x: [..., input_dim] a = self.w1(x) # [..., hidden_dim] b = self.w2(x) # [..., hidden_dim] swish_a = a * torch.sigmoid(a) # Swish(a) gated = swish_a * b # SwiGLU gate output = self.w3(gated) # [..., input_dim] return output # 示例使用 if __name__ == \"__main__\": batch_size = 2 seq_len = 10 d_model = 512 hidden_dim = int(4 * d_model / 3) # LLaMA 风格 hidden_dim = ((hidden_dim + 255) // 256) * 256 # 向上对齐到 256 倍数 x = torch.randn(batch_size, seq_len, d_model) swiglu = SwiGLU(input_dim=d_model, hidden_dim=hidden_dim) y = swiglu(x) print(\"Input shape:\", x.shape) # [2, 10, 512] print(\"Output shape:\", y.shape) # [2, 10, 512] 关键点说明： w1 和 w2 并行处理输入，分别生成门控信号和内容信号。 使用 torch.sigmoid(a) 实现 Swish（即 a * sigmoid(a)）。 最终通过 w3 投影回原维度。 这种结构替换了传统 FFN 中的 Linear → GELU → Linear。 五、为什么 SwiGLU 更好？ 门控机制：允许模型选择性地传递信息，比 ReLU/GELU 更灵活。 平滑性：Swish 是光滑、非单调的激活函数，梯度更稳定。 实证效果：在多个语言建模基准上，SwiGLU 一致优于 ReLU、GELU、甚至其他 GLU 变体（如 ReGLU、GeGLU）。 参考文献 Shazeer, N. (2020). GLU Variants Improve Transformer. arXiv:2002.05202.\nhttps://arxiv.org/abs/2002.05202 Dauphin, Y. N., et al. (2017). Language Modeling with Gated Convolutional Networks. ICML. Touvron, H., et al. (2023). LLaMA: Open and Efficient Foundation Language Models. ",
+  "wordCount" : "513",
+  "inLanguage": "en",
+  "datePublished": "2026-01-07T00:00:00Z",
+  "dateModified": "2026-01-07T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="My work notes (Alt + H)">My work notes</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
+                    <span>大语言模型 (LLM)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
+                    <span>欢迎来到我的工作空间</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+            delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+            ],
+            trust: true,
+            throwOnError: false
+        });
+        });
+    </script>
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      SwiGLU激活函数解析
+    </h1>
+    <div class="post-meta"><span title='2026-01-07 00:00:00 +0000 UTC'>January 7, 2026</span>&nbsp;·&nbsp;<span>fandengdong</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。</p>
+<hr>
+<h2 id="一swiglu-的由来">一、SwiGLU 的由来<a hidden class="anchor" aria-hidden="true" href="#一swiglu-的由来">#</a></h2>
+<p>SwiGLU 最早由 <strong>Shazeer (2020)</strong> 在论文《<strong>GLU Variants Improve Transformer</strong>》中系统性地提出并评估。该工作探索了多种基于 <strong>Gated Linear Unit (GLU)</strong> 的激活函数变体，并发现 <strong>SwiGLU</strong> 在语言建模任务中表现最优。</p>
+<h3 id="背景glugated-linear-unit">背景：GLU（Gated Linear Unit）<a hidden class="anchor" aria-hidden="true" href="#背景glugated-linear-unit">#</a></h3>
+<p>GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：</p>
+<p>[
+\text{GLU}(x) = (W_1 x + b_1) \otimes \sigma(W_2 x + b_2)
+]</p>
+<p>其中：</p>
+<ul>
+<li>( \otimes ) 表示逐元素乘法（Hadamard product），</li>
+<li>( \sigma ) 是 Sigmoid 激活函数。</li>
+</ul>
+<p>GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。</p>
+<h3 id="swiglu-的改进">SwiGLU 的改进<a hidden class="anchor" aria-hidden="true" href="#swiglu-的改进">#</a></h3>
+<p>SwiGLU 将 GLU 中的 Sigmoid 替换为 <strong>Swish</strong>（也称 SiLU）激活函数：</p>
+<p>[
+\text{Swish}(z) = z \cdot \sigma(z) = \frac{z}{1 + e^{-z}}
+]</p>
+<p>因此，SwiGLU 定义为：</p>
+<p>[
+\text{SwiGLU}(x) = \text{Swish}(W_1 x + b_1) \otimes (W_2 x + b_2)
+]</p>
+<p>注意：有些实现中会将偏置项省略（尤其在大规模 Transformer 中），且权重维度通常为输入维度的倍数（如 2/3 倍或 4 倍扩展）。</p>
+<hr>
+<h2 id="二基本原理">二、基本原理<a hidden class="anchor" aria-hidden="true" href="#二基本原理">#</a></h2>
+<p>SwiGLU 的核心思想是：</p>
+<ul>
+<li>将输入 ( x \in \mathbb{R}^d ) 投影到一个更高维空间（如 ( \mathbb{R}^{2r} )），</li>
+<li>将该高维向量拆分为两部分：( a ) 和 ( b )（各 ( r ) 维），</li>
+<li>对 ( a ) 应用 Swish 激活，再与 ( b ) 逐元素相乘，</li>
+<li>最后投影回原始维度。</li>
+</ul>
+<p>这种结构比标准 FFN（两个线性层 + ReLU/GELU）更具表达能力，因为门控机制允许模型动态地“关闭”某些通道。</p>
+<hr>
+<h2 id="三详细数学细节">三、详细数学细节<a hidden class="anchor" aria-hidden="true" href="#三详细数学细节">#</a></h2>
+<p>设输入 ( x \in \mathbb{R}^d )，SwiGLU 层包含两个可学习权重矩阵 ( W_1, W_2 \in \mathbb{R}^{r \times d} ) 和可选偏置 ( b_1, b_2 \in \mathbb{R}^r )。</p>
+<ol>
+<li>
+<p><strong>线性投影</strong>：
+[
+a = W_1 x + b_1 \quad (\in \mathbb{R}^r) \
+b = W_2 x + b_2 \quad (\in \mathbb{R}^r)
+]</p>
+</li>
+<li>
+<p><strong>Swish 激活</strong>：
+[
+\text{Swish}(a) = a \cdot \sigma(a) = \frac{a}{1 + e^{-a}}
+]</p>
+</li>
+<li>
+<p><strong>门控乘积</strong>：
+[
+h = \text{Swish}(a) \odot b \quad (\in \mathbb{R}^r)
+]</p>
+</li>
+<li>
+<p><strong>输出投影（可选，取决于上下文）</strong>：
+若 SwiGLU 作为 FFN 的中间层，则通常还有一个输出投影 ( W_3 \in \mathbb{R}^{d \times r} )：
+[
+y = W_3 h
+]</p>
+</li>
+</ol>
+<blockquote>
+<p>注意：在 LLaMA 等模型中，FFN 结构为：</p>
+<ul>
+<li>先用两个并行线性层将 ( x ) 映射到 ( (r, r) )，</li>
+<li>应用 SwiGLU 得到 ( h \in \mathbb{R}^r )，</li>
+<li>再用一个线性层映射回 ( d )。</li>
+</ul>
+</blockquote>
+<p>通常 ( r = \frac{4d}{3} ) 并向上取整为 256 的倍数（LLaMA 的做法）。</p>
+<hr>
+<h2 id="四pytorch-实现">四、PyTorch 实现<a hidden class="anchor" aria-hidden="true" href="#四pytorch-实现">#</a></h2>
+<p>下面是一个完整的、可运行的 SwiGLU 模块实现，包括 FFN 形式（带输入/输出投影）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SwiGLU</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        SwiGLU 前馈网络模块。
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Args:
+</span></span></span><span class="line"><span class="cl"><span class="s2">            input_dim: 输入维度 d
+</span></span></span><span class="line"><span class="cl"><span class="s2">            hidden_dim: 中间维度 r（通常 &gt; input_dim）
+</span></span></span><span class="line"><span class="cl"><span class="s2">            bias: 是否使用偏置
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">w1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">w2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">w3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">input_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># x: [..., input_dim]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>          <span class="c1"># [..., hidden_dim]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>          <span class="c1"># [..., hidden_dim]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">swish_a</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>  <span class="c1"># Swish(a)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">gated</span> <span class="o">=</span> <span class="n">swish_a</span> <span class="o">*</span> <span class="n">b</span>     <span class="c1"># SwiGLU gate</span>
+</span></span><span class="line"><span class="cl">        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">w3</span><span class="p">(</span><span class="n">gated</span><span class="p">)</span> <span class="c1"># [..., input_dim]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">output</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 示例使用</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&#34;__main__&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl">    <span class="n">seq_len</span> <span class="o">=</span> <span class="mi">10</span>
+</span></span><span class="line"><span class="cl">    <span class="n">d_model</span> <span class="o">=</span> <span class="mi">512</span>
+</span></span><span class="line"><span class="cl">    <span class="n">hidden_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">d_model</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>  <span class="c1"># LLaMA 风格</span>
+</span></span><span class="line"><span class="cl">    <span class="n">hidden_dim</span> <span class="o">=</span> <span class="p">((</span><span class="n">hidden_dim</span> <span class="o">+</span> <span class="mi">255</span><span class="p">)</span> <span class="o">//</span> <span class="mi">256</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span>  <span class="c1"># 向上对齐到 256 倍数</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">swiglu</span> <span class="o">=</span> <span class="n">SwiGLU</span><span class="p">(</span><span class="n">input_dim</span><span class="o">=</span><span class="n">d_model</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="o">=</span><span class="n">hidden_dim</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">y</span> <span class="o">=</span> <span class="n">swiglu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Input shape:&#34;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># [2, 10, 512]</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Output shape:&#34;</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># [2, 10, 512]</span>
+</span></span></code></pre></div><h3 id="关键点说明">关键点说明：<a hidden class="anchor" aria-hidden="true" href="#关键点说明">#</a></h3>
+<ul>
+<li><code>w1</code> 和 <code>w2</code> 并行处理输入，分别生成门控信号和内容信号。</li>
+<li>使用 <code>torch.sigmoid(a)</code> 实现 Swish（即 <code>a * sigmoid(a)</code>）。</li>
+<li>最终通过 <code>w3</code> 投影回原维度。</li>
+<li>这种结构替换了传统 FFN 中的 <code>Linear → GELU → Linear</code>。</li>
+</ul>
+<hr>
+<h2 id="五为什么-swiglu-更好">五、为什么 SwiGLU 更好？<a hidden class="anchor" aria-hidden="true" href="#五为什么-swiglu-更好">#</a></h2>
+<ol>
+<li><strong>门控机制</strong>：允许模型选择性地传递信息，比 ReLU/GELU 更灵活。</li>
+<li><strong>平滑性</strong>：Swish 是光滑、非单调的激活函数，梯度更稳定。</li>
+<li><strong>实证效果</strong>：在多个语言建模基准上，SwiGLU 一致优于 ReLU、GELU、甚至其他 GLU 变体（如 ReGLU、GeGLU）。</li>
+</ol>
+<hr>
+<h2 id="参考文献">参考文献<a hidden class="anchor" aria-hidden="true" href="#参考文献">#</a></h2>
+<ul>
+<li>Shazeer, N. (2020). <strong>GLU Variants Improve Transformer</strong>. arXiv:2002.05202.<br>
+<a href="https://arxiv.org/abs/2002.05202">https://arxiv.org/abs/2002.05202</a></li>
+<li>Dauphin, Y. N., et al. (2017). <strong>Language Modeling with Gated Convolutional Networks</strong>. ICML.</li>
+<li>Touvron, H., et al. (2023). <strong>LLaMA: Open and Efficient Foundation Language Models</strong>.</li>
+</ul>
+<hr>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">My work notes</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>MOE - 混合专家架构 | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。
+MoE 的核心思想
+
+🎯 目标：
+
+扩大模型参数量（提升表达能力）
+保持每次前向计算的 FLOPs 基本不变（高效推理）
+
+
+🔑 关键机制：
+
+模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。
+引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。
+通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。
+
+
+
+
+✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。
+
+MoE给Transformer架构带来的改变
+下面我们从 Transformer 架构出发，深入讲解 MoE（Mixture of Experts）的数学形式、门控机制来源、专家模块在 Transformer 中的具体位置与作用
+MoE 在 Transformer 中的位置
+在标准 Transformer 中，每个 Transformer 层包含两个核心子模块：
+
+多头注意力（Multi-Head Attention, MHA）
+前馈网络（Feed-Forward Network, FFN）
+
+
+✅ MoE 通常只替换 FFN 部分，而保留 MHA 不变。
+
+也就是说，一个 MoE Transformer 层的结构为：">
+<meta name="author" content="fandengdong">
+<link rel="canonical" href="http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><meta property="og:url" content="http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/">
+  <meta property="og:site_name" content="My work notes">
+  <meta property="og:title" content="MOE - 混合专家架构">
+  <meta property="og:description" content="混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。
+MoE 的核心思想 🎯 目标： 扩大模型参数量（提升表达能力） 保持每次前向计算的 FLOPs 基本不变（高效推理） 🔑 关键机制： 模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。 引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。 通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。 ✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。
+MoE给Transformer架构带来的改变 下面我们从 Transformer 架构出发，深入讲解 MoE（Mixture of Experts）的数学形式、门控机制来源、专家模块在 Transformer 中的具体位置与作用
+MoE 在 Transformer 中的位置 在标准 Transformer 中，每个 Transformer 层包含两个核心子模块：
+多头注意力（Multi-Head Attention, MHA） 前馈网络（Feed-Forward Network, FFN） ✅ MoE 通常只替换 FFN 部分，而保留 MHA 不变。
+也就是说，一个 MoE Transformer 层的结构为：">
+  <meta property="og:locale" content="zh-CN">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2025-12-24T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-12-24T00:00:00+00:00">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MOE - 混合专家架构">
+<meta name="twitter:description" content="混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。
+MoE 的核心思想
+
+🎯 目标：
+
+扩大模型参数量（提升表达能力）
+保持每次前向计算的 FLOPs 基本不变（高效推理）
+
+
+🔑 关键机制：
+
+模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。
+引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。
+通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。
+
+
+
+
+✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。
+
+MoE给Transformer架构带来的改变
+下面我们从 Transformer 架构出发，深入讲解 MoE（Mixture of Experts）的数学形式、门控机制来源、专家模块在 Transformer 中的具体位置与作用
+MoE 在 Transformer 中的位置
+在标准 Transformer 中，每个 Transformer 层包含两个核心子模块：
+
+多头注意力（Multi-Head Attention, MHA）
+前馈网络（Feed-Forward Network, FFN）
+
+
+✅ MoE 通常只替换 FFN 部分，而保留 MHA 不变。
+
+也就是说，一个 MoE Transformer 层的结构为：">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "LLM architecture",
+      "item": "http://localhost:1313/llm/architecture/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "MOE - 混合专家架构",
+      "item": "http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MOE - 混合专家架构",
+  "name": "MOE - 混合专家架构",
+  "description": "混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。\nMoE 的核心思想 🎯 目标： 扩大模型参数量（提升表达能力） 保持每次前向计算的 FLOPs 基本不变（高效推理） 🔑 关键机制： 模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。 引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。 通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。 ✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。\nMoE给Transformer架构带来的改变 下面我们从 Transformer 架构出发，深入讲解 MoE（Mixture of Experts）的数学形式、门控机制来源、专家模块在 Transformer 中的具体位置与作用\nMoE 在 Transformer 中的位置 在标准 Transformer 中，每个 Transformer 层包含两个核心子模块：\n多头注意力（Multi-Head Attention, MHA） 前馈网络（Feed-Forward Network, FFN） ✅ MoE 通常只替换 FFN 部分，而保留 MHA 不变。\n也就是说，一个 MoE Transformer 层的结构为：\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。\nMoE 的核心思想 🎯 目标： 扩大模型参数量（提升表达能力） 保持每次前向计算的 FLOPs 基本不变（高效推理） 🔑 关键机制： 模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。 引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。 通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。 ✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。\nMoE给Transformer架构带来的改变 下面我们从 Transformer 架构出发，深入讲解 MoE（Mixture of Experts）的数学形式、门控机制来源、专家模块在 Transformer 中的具体位置与作用\nMoE 在 Transformer 中的位置 在标准 Transformer 中，每个 Transformer 层包含两个核心子模块：\n多头注意力（Multi-Head Attention, MHA） 前馈网络（Feed-Forward Network, FFN） ✅ MoE 通常只替换 FFN 部分，而保留 MHA 不变。\n也就是说，一个 MoE Transformer 层的结构为：\n因此，MoE 是 FFN 的“超集”：传统 FFN = 1 个专家；MoE = 多个专家 + 动态路由。\n传统 FFN 的数学形式（作为对比） 标准 FFN（两层 MLP）： $$ \\text{FFN}(x) = W_2 \\sigma(W_1 x + b_1) + b_2 $$\n其中：\n$x \\in \\mathbb{R}^d$：输入 token 表示 $W_1 \\in \\mathbb{R}^{h \\times d}, W_2 \\in \\mathbb{R}^{d \\times h}$ $\\sigma$：激活函数（如 ReLU、SwiGLU） 所有 token 都经过同一个 FFN。\nMoE 的数学形式 专家集合定义 设有 E 个专家，每个专家是一个独立的 FFN：\n$$ \\text{Expert}i(x) = W{i,2} \\sigma(W_{i,1} x + b_{i,1}) + b_{i,2} $$\n注意：通常省略偏置项以简化分布式训练。\n所有专家参数不共享，总参数量 ≈ E×（单个 FFN 参数量）\n门控网络（Gating Network） 门控打分（logits）： $$ g_i = W_g x_i \\in \\mathbb{R}^E $$\n其中 $W_g \\in \\mathbb{R}^{E \\times d}$ 是可学习的路由权重矩阵。\n💡 门控从哪里来？\n它是一个额外的小型线性层，输入是 token 表示 $x_i$，输出是 $E$ 个专家的打分。\n它是 MoE 模块的一部分，与专家一起训练。\n假定门控网络的输入为X: [bs, seq_len, hidden]，则门控网络的权重参数为W: [hidden, E],其中E为 MoE 的专家数量：\n$$ \\text{logits} = W_g X， 其中W_g \\in \\mathbb{R}^{E \\times \\text{hidden}} $$\n然后接一个softmax得到概率分布：\n$$ p = \\text{softmax}(W_g X) \\in \\mathbb{R}^E $$\nTop-K 选择： 选取概率最大的 $K$ 个专家（通常 $K=1$ 或 $2$）：\n$$ \\mathcal{K}_i = \\text{TopK}(p_i, K) $$\n对应的权重为 $p_i^{(k)}$（归一化或保持原值）。\n⚠️ 实际实现中，为了可微分，即使只用 Top-K，梯度仍通过 Softmax 回传（但只对选中的专家计算前向）。\nMoE 输出（加权组合） 最终输出为选中专家的加权和：\n$$ y_i = \\sum_{e \\in \\mathcal{K}_i} p_i^{(e)} \\cdot \\text{Expert}_e(x_i) $$\n✅ 这就是 MoE 的核心：每个 token 走不同的“子网络”路径。\n实际挑战与解决方案 1. 专家负载不均衡（Expert Collapse） 某些专家被频繁使用，其他“闲置” 导致模型容量浪费，甚至训练不稳定 ✅ 解决方案：辅助负载均衡损失（Auxiliary Loss）\n定义： $f_e = \\dfrac{\\text{分配给专家 } e \\text{ 的 token 数}}{\\text{总 token 数}}$ → 实际使用频率 $P_e = \\text{所有 token 对专家 } e \\text{ 的平均 softmax 概率}$ 辅助损失： $$ L_{aux} = E \\cdot \\sum_{e=1}^E f_e \\cdot P_e $$\n最小化该损失 ⇒ 鼓励高概率专家被实际使用，低频专家提高概率 总损失：$L = L_{\\text{task}} + \\alpha L_{\\text{aux}}$（$\\alpha \\approx 0.01$） MOE基本原理的pytorch实现 import torch import torch.nn as nn import torch.nn.functional as F class SimpleExpert(nn.Module): \"\"\"单个专家：两层线性变换 + ReLU\"\"\" def __init__(self, hidden_dim: int, ffn_dim: int): super().__init__() self.w1 = nn.Linear(hidden_dim, ffn_dim, bias=False) self.w2 = nn.Linear(ffn_dim, hidden_dim, bias=False) self.act = nn.ReLU() def forward(self, x): # x: (N, hidden_dim) return self.w2(self.act(self.w1(x))) # (N, hidden_dim) class SimpleMoE(nn.Module): def __init__( self, hidden_dim: int = 64, ffn_dim: int = 128, num_experts: int = 4, top_k: int = 1, aux_loss_coef: float = 0.01, ): super().__init__() self.hidden_dim = hidden_dim self.num_experts = num_experts self.top_k = top_k self.aux_loss_coef = aux_loss_coef # 创建多个专家 self.experts = nn.ModuleList([ SimpleExpert(hidden_dim, ffn_dim) for _ in range(num_experts) ]) # 门控网络：将 token 映射到专家 logits self.gate = nn.Linear(hidden_dim, num_experts, bias=False) def forward(self, x: torch.Tensor): \"\"\" x: (batch_size, seq_len, hidden_dim) Returns: output: (batch_size, seq_len, hidden_dim) aux_loss: scalar tensor \"\"\" batch_size, seq_len, hidden_dim = x.shape N = batch_size * seq_len # 总 token 数 # [bs, seq_len, hidden_dim] -\u003e [N, hidden_dim] x_flat = x.view(N, hidden_dim) # (N, hidden_dim) # === Step 1: 门控打分 === gate_logits = self.gate(x_flat) # (N, E), E = num_experts gate_probs = F.softmax(gate_logits, dim=-1) # (N, E) # === Step 2: Top-K 选择（这里用 Top-1）=== topk_probs, topk_indices = torch.topk(gate_probs, self.top_k, dim=-1) # (N, K), (N, K) # 构建 one-hot 风格路由掩码 mask = torch.zeros_like(gate_probs).scatter_(-1, topk_indices, 1.0) # (N, E) # === Step 3: 计算辅助负载均衡损失 === # f_e: 每个专家被选中的频率 (E,) f = mask.float().mean(dim=0) # (E,) # P_e: 每个专家的平均 softmax 概率 (E,) P = gate_probs.mean(dim=0) # (E,) aux_loss = torch.sum(f * P) * self.num_experts # scalar # === Step 4: 路由并计算输出 === output_flat = torch.zeros_like(x_flat) # (N, hidden_dim) # 对每个专家，找出分配给它的 token for e in range(self.num_experts): # idx: 分配给专家 e 的 token 索引 (M,) idx = torch.where(mask[:, e] \u003e 0)[0] if idx.numel() == 0: continue expert_input = x_flat[idx] # (M, hidden_dim) expert_output = self.experts[e](expert_input) # (M, hidden_dim) # 使用原始 softmax 概率作为权重（不是归一化后的） weights = gate_probs[idx, e].unsqueeze(1) # (M, 1) output_flat[idx] += weights * expert_output # (M, hidden_dim) output = output_flat.view(batch_size, seq_len, hidden_dim) # (bs, seq_len, hidden_dim) return output, self.aux_loss_coef * aux_loss # ============================== # 演示用法 # ============================== if __name__ == \"__main__\": # 设置参数 bs, seq_len, hidden_dim = 2, 5, 64 x = torch.randn(bs, seq_len, hidden_dim) # 初始化 MoE 层 moe = SimpleMoE( hidden_dim=hidden_dim, ffn_dim=128, num_experts=4, top_k=1, aux_loss_coef=0.01 ) # 前向传播 output, aux_loss = moe(x) print(\"Input shape:\", x.shape) # torch.Size([2, 5, 64]) print(\"Output shape:\", output.shape) # torch.Size([2, 5, 64]) print(\"Aux loss:\", aux_loss.item()) # scalar, e.g., 0.04 # 模拟任务损失（例如 MSE） target = torch.randn_like(output) task_loss = F.mse_loss(output, target) total_loss = task_loss + aux_loss print(\"Task loss:\", task_loss.item()) print(\"Total loss:\", total_loss.item()) # 反向传播（验证梯度是否正常） total_loss.backward() print(\"Backward passed! Gradients computed.\") ",
+  "wordCount" : "718",
+  "inLanguage": "en",
+  "datePublished": "2025-12-24T00:00:00Z",
+  "dateModified": "2025-12-24T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="My work notes (Alt + H)">My work notes</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
+                    <span>大语言模型 (LLM)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
+                    <span>欢迎来到我的工作空间</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+            delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+            ],
+            trust: true,
+            throwOnError: false
+        });
+        });
+    </script>
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      MOE - 混合专家架构
+    </h1>
+    <div class="post-meta"><span title='2025-12-24 00:00:00 +0000 UTC'>December 24, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。</p>
+<h2 id="moe-的核心思想">MoE 的核心思想<a hidden class="anchor" aria-hidden="true" href="#moe-的核心思想">#</a></h2>
+<ul>
+<li>🎯 目标：
+<ul>
+<li>扩大模型参数量（提升表达能力）</li>
+<li>保持每次前向计算的 FLOPs 基本不变（高效推理）</li>
+</ul>
+</li>
+<li>🔑 关键机制：
+<ul>
+<li>模型由多个“专家”（Experts）组成，每个专家是一个子网络（如 FFN）。</li>
+<li>引入一个门控网络（Gating Network），根据输入动态决定激活哪几个专家。</li>
+<li>通常只激活 Top-K 个专家（如 K=1 或 K=2），其余专家不参与计算。</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>✅ 这样：总参数量 = 所有专家参数之和（很大），但每 token 计算量 ≈ K 个专家（很小）。</p>
+</blockquote>
+<h2 id="moe给transformer架构带来的改变">MoE给Transformer架构带来的改变<a hidden class="anchor" aria-hidden="true" href="#moe给transformer架构带来的改变">#</a></h2>
+<p>下面我们从 Transformer 架构出发，深入讲解 MoE（Mixture of Experts）的数学形式、门控机制来源、专家模块在 Transformer 中的具体位置与作用</p>
+<h3 id="moe-在-transformer-中的位置">MoE 在 Transformer 中的位置<a hidden class="anchor" aria-hidden="true" href="#moe-在-transformer-中的位置">#</a></h3>
+<p>在标准 Transformer 中，每个 Transformer 层包含两个核心子模块：</p>
+<ul>
+<li>多头注意力（Multi-Head Attention, MHA）</li>
+<li>前馈网络（Feed-Forward Network, FFN）</li>
+</ul>
+<blockquote>
+<p>✅ MoE 通常只替换 FFN 部分，而保留 MHA 不变。</p>
+</blockquote>
+<p>也就是说，一个 MoE Transformer 层的结构为：</p>
+<img src="MOE_transformer.png" alt="MOE" style="width:60%;height:auto;">
+<p><strong>因此，MoE 是 FFN 的“超集”：传统 FFN = 1 个专家；MoE = 多个专家 + 动态路由。</strong></p>
+<h3 id="传统-ffn-的数学形式作为对比">传统 FFN 的数学形式（作为对比）<a hidden class="anchor" aria-hidden="true" href="#传统-ffn-的数学形式作为对比">#</a></h3>
+<p>标准 FFN（两层 MLP）：
+$$
+\text{FFN}(x) = W_2 \sigma(W_1 x + b_1) + b_2
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$x \in \mathbb{R}^d$：输入 token 表示</li>
+<li>$W_1 \in \mathbb{R}^{h \times d}, W_2 \in \mathbb{R}^{d \times h}$</li>
+<li>$\sigma$：激活函数（如 ReLU、SwiGLU）</li>
+</ul>
+<p>所有 token 都经过同一个 FFN。</p>
+<h3 id="moe-的数学形式">MoE 的数学形式<a hidden class="anchor" aria-hidden="true" href="#moe-的数学形式">#</a></h3>
+<h4 id="专家集合定义">专家集合定义<a hidden class="anchor" aria-hidden="true" href="#专家集合定义">#</a></h4>
+<p>设有 E 个专家，每个专家是一个独立的 FFN：</p>
+<p>$$
+\text{Expert}<em>i(x) = W</em>{i,2} \sigma(W_{i,1} x + b_{i,1}) + b_{i,2}
+$$</p>
+<blockquote>
+<p>注意：通常省略偏置项以简化分布式训练。</p>
+</blockquote>
+<p>所有专家参数不共享，总参数量 ≈ E×（单个 FFN 参数量）</p>
+<h4 id="门控网络gating-network">门控网络（Gating Network）<a hidden class="anchor" aria-hidden="true" href="#门控网络gating-network">#</a></h4>
+<h5 id="门控打分logits">门控打分（logits）：<a hidden class="anchor" aria-hidden="true" href="#门控打分logits">#</a></h5>
+<p>$$
+g_i = W_g x_i \in \mathbb{R}^E
+$$</p>
+<p>其中 $W_g \in \mathbb{R}^{E \times d}$ 是可学习的路由权重矩阵。</p>
+<blockquote>
+<p>💡 <strong>门控从哪里来？</strong><br>
+它是一个额外的小型线性层，输入是 token 表示 $x_i$，输出是 $E$ 个专家的打分。<br>
+它是 MoE 模块的一部分，与专家一起训练。</p>
+</blockquote>
+<p>假定门控网络的输入为X: [bs, seq_len, hidden]，则门控网络的权重参数为W: [hidden, E],其中E为 MoE 的专家数量：</p>
+<p>$$
+\text{logits} = W_g X， 其中W_g \in \mathbb{R}^{E \times \text{hidden}}
+$$</p>
+<p>然后接一个softmax得到概率分布：</p>
+<p>$$
+p = \text{softmax}(W_g X) \in \mathbb{R}^E
+$$</p>
+<h5 id="top-k-选择">Top-K 选择：<a hidden class="anchor" aria-hidden="true" href="#top-k-选择">#</a></h5>
+<p>选取概率最大的 $K$ 个专家（通常 $K=1$ 或 $2$）：</p>
+<p>$$
+\mathcal{K}_i = \text{TopK}(p_i, K)
+$$</p>
+<p>对应的权重为 $p_i^{(k)}$（归一化或保持原值）。</p>
+<blockquote>
+<p>⚠️ 实际实现中，为了可微分，即使只用 Top-K，梯度仍通过 Softmax 回传（但只对选中的专家计算前向）。</p>
+</blockquote>
+<hr>
+<h4 id="moe-输出加权组合">MoE 输出（加权组合）<a hidden class="anchor" aria-hidden="true" href="#moe-输出加权组合">#</a></h4>
+<p>最终输出为选中专家的加权和：</p>
+<p>$$
+y_i = \sum_{e \in \mathcal{K}_i} p_i^{(e)} \cdot \text{Expert}_e(x_i)
+$$</p>
+<blockquote>
+<p>✅ 这就是 MoE 的核心：<strong>每个 token 走不同的“子网络”路径</strong>。</p>
+</blockquote>
+<h3 id="实际挑战与解决方案">实际挑战与解决方案<a hidden class="anchor" aria-hidden="true" href="#实际挑战与解决方案">#</a></h3>
+<h4 id="1-专家负载不均衡expert-collapse">1. 专家负载不均衡（Expert Collapse）<a hidden class="anchor" aria-hidden="true" href="#1-专家负载不均衡expert-collapse">#</a></h4>
+<ul>
+<li>某些专家被频繁使用，其他“闲置”</li>
+<li>导致模型容量浪费，甚至训练不稳定</li>
+</ul>
+<p>✅ <strong>解决方案：辅助负载均衡损失（Auxiliary Loss）</strong></p>
+<h5 id="定义">定义：<a hidden class="anchor" aria-hidden="true" href="#定义">#</a></h5>
+<ul>
+<li>$f_e = \dfrac{\text{分配给专家 } e \text{ 的 token 数}}{\text{总 token 数}}$ → 实际使用频率</li>
+<li>$P_e = \text{所有 token 对专家 } e \text{ 的平均 softmax 概率}$</li>
+</ul>
+<h5 id="辅助损失">辅助损失：<a hidden class="anchor" aria-hidden="true" href="#辅助损失">#</a></h5>
+<p>$$
+L_{aux} = E \cdot \sum_{e=1}^E f_e \cdot P_e
+$$</p>
+<ul>
+<li>最小化该损失 ⇒ 鼓励高概率专家被实际使用，低频专家提高概率</li>
+<li>总损失：$L = L_{\text{task}} + \alpha L_{\text{aux}}$（$\alpha \approx 0.01$）</li>
+</ul>
+<h3 id="moe基本原理的pytorch实现">MOE基本原理的pytorch实现<a hidden class="anchor" aria-hidden="true" href="#moe基本原理的pytorch实现">#</a></h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SimpleExpert</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;单个专家：两层线性变换 + ReLU&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ffn_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">w1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">ffn_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">w2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">ffn_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># x: (N, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">act</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w1</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>  <span class="c1"># (N, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SimpleMoE</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">hidden_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">ffn_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">num_experts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">aux_loss_coef</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span> <span class="o">=</span> <span class="n">hidden_dim</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">num_experts</span> <span class="o">=</span> <span class="n">num_experts</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">top_k</span> <span class="o">=</span> <span class="n">top_k</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">aux_loss_coef</span> <span class="o">=</span> <span class="n">aux_loss_coef</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># 创建多个专家</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">experts</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+</span></span><span class="line"><span class="cl">            <span class="n">SimpleExpert</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">ffn_dim</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experts</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">])</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 门控网络：将 token 映射到专家 logits</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">gate</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">,</span> <span class="n">num_experts</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        x: (batch_size, seq_len, hidden_dim)
+</span></span></span><span class="line"><span class="cl"><span class="s2">        Returns:
+</span></span></span><span class="line"><span class="cl"><span class="s2">            output: (batch_size, seq_len, hidden_dim)
+</span></span></span><span class="line"><span class="cl"><span class="s2">            aux_loss: scalar tensor
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">batch_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">hidden_dim</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+</span></span><span class="line"><span class="cl">        <span class="n">N</span> <span class="o">=</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seq_len</span>  <span class="c1"># 总 token 数</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># [bs, seq_len, hidden_dim] -&gt; [N, hidden_dim]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_flat</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">)</span>  <span class="c1"># (N, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === Step 1: 门控打分 ===</span>
+</span></span><span class="line"><span class="cl">        <span class="n">gate_logits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gate</span><span class="p">(</span><span class="n">x_flat</span><span class="p">)</span>  <span class="c1"># (N, E), E = num_experts</span>
+</span></span><span class="line"><span class="cl">        <span class="n">gate_probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">gate_logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (N, E)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === Step 2: Top-K 选择（这里用 Top-1）===</span>
+</span></span><span class="line"><span class="cl">        <span class="n">topk_probs</span><span class="p">,</span> <span class="n">topk_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">gate_probs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (N, K), (N, K)</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 构建 one-hot 风格路由掩码</span>
+</span></span><span class="line"><span class="cl">        <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">gate_probs</span><span class="p">)</span><span class="o">.</span><span class="n">scatter_</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">topk_indices</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># (N, E)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === Step 3: 计算辅助负载均衡损失 ===</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># f_e: 每个专家被选中的频率 (E,)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">f</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># (E,)</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># P_e: 每个专家的平均 softmax 概率 (E,)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">P</span> <span class="o">=</span> <span class="n">gate_probs</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># (E,)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">aux_loss</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">P</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_experts</span>  <span class="c1"># scalar</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === Step 4: 路由并计算输出 ===</span>
+</span></span><span class="line"><span class="cl">        <span class="n">output_flat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x_flat</span><span class="p">)</span>  <span class="c1"># (N, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># 对每个专家，找出分配给它的 token</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_experts</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="c1"># idx: 分配给专家 e 的 token 索引 (M,)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">[:,</span> <span class="n">e</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                <span class="k">continue</span>
+</span></span><span class="line"><span class="cl">            <span class="n">expert_input</span> <span class="o">=</span> <span class="n">x_flat</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>  <span class="c1"># (M, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">expert_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">experts</span><span class="p">[</span><span class="n">e</span><span class="p">](</span><span class="n">expert_input</span><span class="p">)</span>  <span class="c1"># (M, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">            <span class="c1"># 使用原始 softmax 概率作为权重（不是归一化后的）</span>
+</span></span><span class="line"><span class="cl">            <span class="n">weights</span> <span class="o">=</span> <span class="n">gate_probs</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">e</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (M, 1)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">output_flat</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+=</span> <span class="n">weights</span> <span class="o">*</span> <span class="n">expert_output</span>  <span class="c1"># (M, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">output</span> <span class="o">=</span> <span class="n">output_flat</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">)</span>  <span class="c1"># (bs, seq_len, hidden_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">output</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_loss_coef</span> <span class="o">*</span> <span class="n">aux_loss</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ==============================</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 演示用法</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ==============================</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&#34;__main__&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># 设置参数</span>
+</span></span><span class="line"><span class="cl">    <span class="n">bs</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">hidden_dim</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">64</span>
+</span></span><span class="line"><span class="cl">    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># 初始化 MoE 层</span>
+</span></span><span class="line"><span class="cl">    <span class="n">moe</span> <span class="o">=</span> <span class="n">SimpleMoE</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">hidden_dim</span><span class="o">=</span><span class="n">hidden_dim</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">ffn_dim</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">num_experts</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">top_k</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">aux_loss_coef</span><span class="o">=</span><span class="mf">0.01</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># 前向传播</span>
+</span></span><span class="line"><span class="cl">    <span class="n">output</span><span class="p">,</span> <span class="n">aux_loss</span> <span class="o">=</span> <span class="n">moe</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Input shape:&#34;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>          <span class="c1"># torch.Size([2, 5, 64])</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Output shape:&#34;</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>    <span class="c1"># torch.Size([2, 5, 64])</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Aux loss:&#34;</span><span class="p">,</span> <span class="n">aux_loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>     <span class="c1"># scalar, e.g., 0.04</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># 模拟任务损失（例如 MSE）</span>
+</span></span><span class="line"><span class="cl">    <span class="n">target</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">task_loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">total_loss</span> <span class="o">=</span> <span class="n">task_loss</span> <span class="o">+</span> <span class="n">aux_loss</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Task loss:&#34;</span><span class="p">,</span> <span class="n">task_loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Total loss:&#34;</span><span class="p">,</span> <span class="n">total_loss</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># 反向传播（验证梯度是否正常）</span>
+</span></span><span class="line"><span class="cl">    <span class="n">total_loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Backward passed! Gradients computed.&#34;</span><span class="p">)</span>
+</span></span></code></pre></div>
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2025 <a href="http://localhost:1313/">My work notes</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

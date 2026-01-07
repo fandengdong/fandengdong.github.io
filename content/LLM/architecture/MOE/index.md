@@ -31,7 +31,8 @@ math: true
 
 也就是说，一个 MoE Transformer 层的结构为：
 
-<img src="MOE_transformer.png" alt="MOE" style="width:60%;height:auto;">
+<img src="MOE_transformer.png" alt="MOE" style="width:100%;height:auto;">
+<!-- ![MOE](MOE_transformer.png) -->
 
 **因此，MoE 是 FFN 的“超集”：传统 FFN = 1 个专家；MoE = 多个专家 + 动态路由。**
 
@@ -55,6 +56,7 @@ $$
 #### 专家集合定义
 
 设有 E 个专家，每个专家是一个独立的 FFN：
+
 $$
 \text{Expert}_i(x) = W_{i,2} \sigma(W_{i,1} x + b_{i,1}) + b_{i,2}
 $$
@@ -132,11 +134,11 @@ $$
 ##### 辅助损失：
 
 $$
-\mathcal{L}_{\text{aux}} = E \cdot \sum_{e=1}^E f_e \cdot P_e
+L_{aux} = E \cdot \sum_{e=1}^E f_e \cdot P_e
 $$
 
 - 最小化该损失 ⇒ 鼓励高概率专家被实际使用，低频专家提高概率
-- 总损失：$\mathcal{L} = \mathcal{L}_{\text{task}} + \alpha \mathcal{L}_{\text{aux}}$（$\alpha \approx 0.01$）
+- 总损失：$L = L_{\text{task}} + \alpha L_{\text{aux}}$（$\alpha \approx 0.01$）
 
 ### MOE基本原理的pytorch实现
 

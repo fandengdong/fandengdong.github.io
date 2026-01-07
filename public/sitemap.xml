@@ -3,7 +3,7 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>http://localhost:1313/llm/</loc>
-    <lastmod>2025-12-25T00:00:00+00:00</lastmod>
+    <lastmod>2026-01-07T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/toolbox/</loc>
     <lastmod>2025-11-06T18:00:00+08:00</lastmod>
@@ -11,15 +11,30 @@
     <loc>http://localhost:1313/rl/</loc>
   </url><url>
     <loc>http://localhost:1313/llm/architecture/</loc>
-    <lastmod>2025-12-25T00:00:00+00:00</lastmod>
+    <lastmod>2026-01-07T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/mla/</loc>
+    <lastmod>2026-01-07T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/</loc>
+    <lastmod>2026-01-07T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/</loc>
+    <lastmod>2026-01-07T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/alibi-%E8%A7%A3%E5%86%B3%E4%BC%A0%E7%BB%9F%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81%E5%A4%96%E6%8E%A8%E9%97%AE%E9%A2%98/</loc>
+    <lastmod>2026-01-04T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/rmsnorm%E8%A7%A3%E6%9E%90/</loc>
+    <lastmod>2026-01-04T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/gqa/</loc>
+    <lastmod>2025-12-31T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/architecture/yarn%E6%8E%A8%E7%90%86%E6%89%A9%E5%B1%95%E6%8A%80%E6%9C%AF/</loc>
     <lastmod>2025-12-25T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/</loc>
-    <lastmod>2025-12-25T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</loc>
+    <loc>http://localhost:1313/llm/architecture/moe/</loc>
     <lastmod>2025-12-24T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/llm/architecture/rope/</loc>

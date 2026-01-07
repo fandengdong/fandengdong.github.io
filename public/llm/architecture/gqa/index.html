@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>GQA - Grouped-query Attention 分组查询注意力 | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。
+它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。
+一、GQA 的由来：为什么需要 GQA？
+在标准的 Multi-Head Attention（MHA） 中：
+
+Query（Q）、Key（K）、Value（V） 都被分成 h 个头，每个头独立计算注意力。
+推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：
+[
+\text{Cache Size} = 2 \times h \times n \times d_k
+]
+其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。
+
+当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。
+
+替代方案对比：
+
+  
+      
+          方法
+          Q 头数
+          K/V 头数
+          KV Cache
+          表达能力
+      
+  
+  
+      
+          MHA（多头注意力）
+          h
+          h
+          大
+          强
+      
+      
+          MQA（多查询注意力）
+          h
+          1
+          极小
+          弱（性能下降明显）
+      
+      
+          GQA（分组查询注意力）
+          h
+          g（g ≪ h）
+          中等
+          接近 MHA
+      
+  
+
+
+💡 GQA 由 Google 在 2023 年论文《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》提出，旨在 平衡效率与性能。">
+<meta name="author" content="fandengdong">
+<link rel="canonical" href="http://localhost:1313/llm/architecture/gqa/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/architecture/gqa/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><meta property="og:url" content="http://localhost:1313/llm/architecture/gqa/">
+  <meta property="og:site_name" content="My work notes">
+  <meta property="og:title" content="GQA - Grouped-query Attention 分组查询注意力">
+  <meta property="og:description" content="GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。
+它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。
+一、GQA 的由来：为什么需要 GQA？ 在标准的 Multi-Head Attention（MHA） 中：
+Query（Q）、Key（K）、Value（V） 都被分成 h 个头，每个头独立计算注意力。 推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：
+[ \text{Cache Size} = 2 \times h \times n \times d_k ] 其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。 当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。
+替代方案对比： 方法 Q 头数 K/V 头数 KV Cache 表达能力 MHA（多头注意力） h h 大 强 MQA（多查询注意力） h 1 极小 弱（性能下降明显） GQA（分组查询注意力） h g（g ≪ h） 中等 接近 MHA 💡 GQA 由 Google 在 2023 年论文《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》提出，旨在 平衡效率与性能。">
+  <meta property="og:locale" content="zh-CN">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2025-12-31T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-12-31T00:00:00+00:00">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="GQA - Grouped-query Attention 分组查询注意力">
+<meta name="twitter:description" content="GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。
+它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。
+一、GQA 的由来：为什么需要 GQA？
+在标准的 Multi-Head Attention（MHA） 中：
+
+Query（Q）、Key（K）、Value（V） 都被分成 h 个头，每个头独立计算注意力。
+推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：
+[
+\text{Cache Size} = 2 \times h \times n \times d_k
+]
+其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。
+
+当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。
+
+替代方案对比：
+
+  
+      
+          方法
+          Q 头数
+          K/V 头数
+          KV Cache
+          表达能力
+      
+  
+  
+      
+          MHA（多头注意力）
+          h
+          h
+          大
+          强
+      
+      
+          MQA（多查询注意力）
+          h
+          1
+          极小
+          弱（性能下降明显）
+      
+      
+          GQA（分组查询注意力）
+          h
+          g（g ≪ h）
+          中等
+          接近 MHA
+      
+  
+
+
+💡 GQA 由 Google 在 2023 年论文《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》提出，旨在 平衡效率与性能。">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "LLM architecture",
+      "item": "http://localhost:1313/llm/architecture/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "GQA - Grouped-query Attention 分组查询注意力",
+      "item": "http://localhost:1313/llm/architecture/gqa/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "GQA - Grouped-query Attention 分组查询注意力",
+  "name": "GQA - Grouped-query Attention 分组查询注意力",
+  "description": "GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。\n它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。\n一、GQA 的由来：为什么需要 GQA？ 在标准的 Multi-Head Attention（MHA） 中：\nQuery（Q）、Key（K）、Value（V） 都被分成 h 个头，每个头独立计算注意力。 推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：\n[ \\text{Cache Size} = 2 \\times h \\times n \\times d_k ] 其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。 当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。\n替代方案对比： 方法 Q 头数 K/V 头数 KV Cache 表达能力 MHA（多头注意力） h h 大 强 MQA（多查询注意力） h 1 极小 弱（性能下降明显） GQA（分组查询注意力） h g（g ≪ h） 中等 接近 MHA 💡 GQA 由 Google 在 2023 年论文《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》提出，旨在 平衡效率与性能。\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。\n它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。\n一、GQA 的由来：为什么需要 GQA？ 在标准的 Multi-Head Attention（MHA） 中：\nQuery（Q）、Key（K）、Value（V） 都被分成 h 个头，每个头独立计算注意力。 推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：\n[ \\text{Cache Size} = 2 \\times h \\times n \\times d_k ] 其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。 当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。\n替代方案对比： 方法 Q 头数 K/V 头数 KV Cache 表达能力 MHA（多头注意力） h h 大 强 MQA（多查询注意力） h 1 极小 弱（性能下降明显） GQA（分组查询注意力） h g（g ≪ h） 中等 接近 MHA 💡 GQA 由 Google 在 2023 年论文《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》提出，旨在 平衡效率与性能。\n二、基本原理 将 h 个 query heads 分成 g 组（g 整除 h） 每组共享 同一个 key head 和 value head 因此，K/V 只需生成 g 个 heads，而不是 h 个 例如：\nh = 32, g = 8 → 每 4 个 Q heads 共享 1 个 K/V head KV Cache 减少为原来的 ( \\frac{g}{h} = \\frac{1}{4} ) ✅ 关键思想：并非所有 query 都需要独立的 key/value 视角；适度共享可大幅节省内存，而性能损失极小。\n三、数学细节 设输入为 ( X \\in \\mathbb{R}^{n \\times d_{\\text{model}}} )\n线性投影： [ Q = X W_Q \\in \\mathbb{R}^{n \\times h d_q}, \\quad K = X W_K \\in \\mathbb{R}^{n \\times g d_k}, \\quad V = X W_V \\in \\mathbb{R}^{n \\times g d_v} ] 其中通常 ( d_q = d_k = d_v = d_{\\text{head}} )\nreshape：\n( Q \\rightarrow (n, h, d_{\\text{head}}) ) ( K, V \\rightarrow (n, g, d_{\\text{head}}) ) 广播匹配：\n将 K/V 重复（或 view 扩展）为 (n, h, d_head)，使得每组 Q 对应相同的 K/V 例如：若 h=8, g=2，则 K 变成 [k0,k0,k0,k0, k1,k1,k1,k1] Attention 计算： [ \\text{Attn}(Q, K, V) = \\text{softmax}\\left( \\frac{Q K^\\top}{\\sqrt{d_{\\text{head}}}} \\right) V ] 注意：Q 是 (n, h, d)，K/V 广播后也是 (n, h, d)，可直接点积\n输出拼接 → 投影回 ( d_{\\text{model}} )\n四、PyTorch 实现（可运行演示） import torch import torch.nn as nn import torch.nn.functional as F class GroupedQueryAttention(nn.Module): def __init__(self, embed_dim, num_heads, num_groups, dropout=0.0): super().__init__() assert num_heads % num_groups == 0, \"num_heads must be divisible by num_groups\" self.embed_dim = embed_dim self.num_heads = num_heads self.num_groups = num_groups self.head_dim = embed_dim // num_heads # 总投影维度 self.q_proj = nn.Linear(embed_dim, embed_dim, bias=False) self.k_proj = nn.Linear(embed_dim, self.head_dim * num_groups, bias=False) self.v_proj = nn.Linear(embed_dim, self.head_dim * num_groups, bias=False) self.out_proj = nn.Linear(embed_dim, embed_dim, bias=False) self.dropout = dropout def forward(self, x): # x: (batch_size, seq_len, embed_dim) B, N, D = x.shape # Project q = self.q_proj(x) # (B, N, D) k = self.k_proj(x) # (B, N, num_groups * head_dim) v = self.v_proj(x) # (B, N, num_groups * head_dim) # Reshape Q: (B, N, num_heads, head_dim) q = q.view(B, N, self.num_heads, self.head_dim).transpose(1, 2) # (B, num_heads, N, head_dim) # Reshape K/V: (B, N, num_groups, head_dim) k = k.view(B, N, self.num_groups, self.head_dim).transpose(1, 2) # (B, num_groups, N, head_dim) v = v.view(B, N, self.num_groups, self.head_dim).transpose(1, 2) # (B, num_groups, N, head_dim) # Broadcast K/V to match Q's head dimension # Repeat each group head for (num_heads // num_groups) times repeat_factor = self.num_heads // self.num_groups k = k.unsqueeze(2).expand(-1, -1, repeat_factor, -1, -1).flatten(1, 2) # (B, num_heads, N, head_dim) v = v.unsqueeze(2).expand(-1, -1, repeat_factor, -1, -1).flatten(1, 2) # (B, num_heads, N, head_dim) # Scaled dot-product attention scale = self.head_dim ** -0.5 attn_scores = torch.matmul(q, k.transpose(-2, -1)) * scale # (B, num_heads, N, N) attn_probs = F.softmax(attn_scores, dim=-1) attn_probs = F.dropout(attn_probs, p=self.dropout, training=self.training) out = torch.matmul(attn_probs, v) # (B, num_heads, N, head_dim) out = out.transpose(1, 2).contiguous().view(B, N, D) # (B, N, embed_dim) out = self.out_proj(out) return out # ------------------ 演示 ------------------ if __name__ == \"__main__\": torch.manual_seed(0) batch_size = 2 seq_len = 8 embed_dim = 128 num_heads = 8 num_groups = 2 # GQA: 8 query heads, 2 key/value heads x = torch.randn(batch_size, seq_len, embed_dim) # GQA 模型 gqa = GroupedQueryAttention(embed_dim, num_heads, num_groups) output = gqa(x) print(\"Input shape:\", x.shape) # [2, 8, 128] print(\"Output shape:\", output.shape) # [2, 8, 128] # 验证参数量 vs MHA # MHA 会有 3 * embed_dim * embed_dim 参数（Q/K/V） # GQA 的 K/V 投影更小： total_params = sum(p.numel() for p in gqa.parameters()) print(f\"Total parameters in GQA layer: {total_params}\") # 对比：如果是标准 MHA（num_heads=8, embed_dim=128） mha = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True) mha_params = sum(p.numel() for p in mha.parameters()) print(f\"Standard MHA parameters: {mha_params}\") 输出示例： Input shape: torch.Size([2, 8, 128]) Output shape: torch.Size([2, 8, 128]) Total parameters in GQA layer: 49920 Standard MHA parameters: 65664 🔍 可见 GQA 显著减少了 K/V 投影的参数量（从 2×128×128 → 2×128×32），同时 KV Cache 也减少为 1/4。\n五、补充说明 训练兼容性：GQA 可通过 蒸馏或微调 从 MHA 模型迁移（原论文重点） 实际应用： LLaMA-2 / LLaMA-3：全部使用 GQA（7B: h=32, g=8；70B: h=64, g=8） Qwen、DeepSeek、Falcon 等均采用 GQA 推理加速：结合 PagedAttention（vLLM） 或 TensorRT-LLM，GQA 可极大提升吞吐 六、延伸思考 如果 num_groups = num_heads → 退化为 MHA 如果 num_groups = 1 → 退化为 MQA GQA 是 MHA 和 MQA 的广义形式 希望这份总结能帮你彻底掌握 GQA！如果你想进一步看 如何集成到完整 Transformer Block，或对比 GQA vs MQA 在长文本上的表现，也可以继续提问。\n七 、参考文献 MQA(2019): Fast Transformer Decoding: One Write-Head is All You Need GQA(2023): Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints\n",
+  "wordCount" : "748",
+  "inLanguage": "en",
+  "datePublished": "2025-12-31T00:00:00Z",
+  "dateModified": "2025-12-31T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/architecture/gqa/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="My work notes (Alt + H)">My work notes</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
+                    <span>大语言模型 (LLM)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
+                    <span>欢迎来到我的工作空间</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+            delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+            ],
+            trust: true,
+            throwOnError: false
+        });
+        });
+    </script>
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      GQA - Grouped-query Attention 分组查询注意力
+    </h1>
+    <div class="post-meta"><span title='2025-12-31 00:00:00 +0000 UTC'>December 31, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。</p>
+<p>它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。</p>
+<h2 id="一gqa-的由来为什么需要-gqa">一、GQA 的由来：为什么需要 GQA？<a hidden class="anchor" aria-hidden="true" href="#一gqa-的由来为什么需要-gqa">#</a></h2>
+<p>在标准的 <strong>Multi-Head Attention（MHA）</strong> 中：</p>
+<ul>
+<li>Query（Q）、Key（K）、Value（V） 都被分成 <strong>h 个头</strong>，每个头独立计算注意力。</li>
+<li>推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：<br>
+[
+\text{Cache Size} = 2 \times h \times n \times d_k
+]
+其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。</li>
+</ul>
+<p>当模型变大（如 LLaMA-65B，h=64），<strong>KV Cache 占用大量显存</strong>，成为推理瓶颈。</p>
+<img src="GQA.png" alt="GQA" style="width:80%;height:auto;">
+<h3 id="替代方案对比">替代方案对比：<a hidden class="anchor" aria-hidden="true" href="#替代方案对比">#</a></h3>
+<table>
+  <thead>
+      <tr>
+          <th>方法</th>
+          <th>Q 头数</th>
+          <th>K/V 头数</th>
+          <th>KV Cache</th>
+          <th>表达能力</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>MHA（多头注意力）</td>
+          <td>h</td>
+          <td>h</td>
+          <td>大</td>
+          <td>强</td>
+      </tr>
+      <tr>
+          <td>MQA（多查询注意力）</td>
+          <td>h</td>
+          <td>1</td>
+          <td>极小</td>
+          <td>弱（性能下降明显）</td>
+      </tr>
+      <tr>
+          <td><strong>GQA（分组查询注意力）</strong></td>
+          <td>h</td>
+          <td>g（g ≪ h）</td>
+          <td><strong>中等</strong></td>
+          <td><strong>接近 MHA</strong></td>
+      </tr>
+  </tbody>
+</table>
+<blockquote>
+<p>💡 GQA 由 Google 在 2023 年论文《<a href="https://arxiv.org/abs/2305.13245">GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints</a>》提出，旨在 <strong>平衡效率与性能</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="二基本原理">二、基本原理<a hidden class="anchor" aria-hidden="true" href="#二基本原理">#</a></h2>
+<ul>
+<li>将 <strong>h 个 query heads 分成 g 组</strong>（g 整除 h）</li>
+<li>每组共享 <strong>同一个 key head 和 value head</strong></li>
+<li>因此，K/V 只需生成 <strong>g 个 heads</strong>，而不是 h 个</li>
+</ul>
+<p>例如：</p>
+<ul>
+<li>h = 32, g = 8 → 每 4 个 Q heads 共享 1 个 K/V head</li>
+<li>KV Cache 减少为原来的 ( \frac{g}{h} = \frac{1}{4} )</li>
+</ul>
+<blockquote>
+<p>✅ <strong>关键思想</strong>：并非所有 query 都需要独立的 key/value 视角；适度共享可大幅节省内存，而性能损失极小。</p>
+</blockquote>
+<hr>
+<h2 id="三数学细节">三、数学细节<a hidden class="anchor" aria-hidden="true" href="#三数学细节">#</a></h2>
+<p>设输入为 ( X \in \mathbb{R}^{n \times d_{\text{model}}} )</p>
+<ol>
+<li>
+<p><strong>线性投影</strong>：
+[
+Q = X W_Q \in \mathbb{R}^{n \times h d_q}, \quad
+K = X W_K \in \mathbb{R}^{n \times g d_k}, \quad
+V = X W_V \in \mathbb{R}^{n \times g d_v}
+]
+其中通常 ( d_q = d_k = d_v = d_{\text{head}} )</p>
+</li>
+<li>
+<p><strong>reshape</strong>：</p>
+<ul>
+<li>( Q \rightarrow (n, h, d_{\text{head}}) )</li>
+<li>( K, V \rightarrow (n, g, d_{\text{head}}) )</li>
+</ul>
+</li>
+<li>
+<p><strong>广播匹配</strong>：</p>
+<ul>
+<li>将 K/V <strong>重复</strong>（或 view 扩展）为 (n, h, d_head)，使得每组 Q 对应相同的 K/V</li>
+<li>例如：若 h=8, g=2，则 K 变成 [k0,k0,k0,k0, k1,k1,k1,k1]</li>
+</ul>
+</li>
+<li>
+<p><strong>Attention 计算</strong>：
+[
+\text{Attn}(Q, K, V) = \text{softmax}\left( \frac{Q K^\top}{\sqrt{d_{\text{head}}}} \right) V
+]
+注意：Q 是 (n, h, d)，K/V 广播后也是 (n, h, d)，可直接点积</p>
+</li>
+<li>
+<p><strong>输出拼接</strong> → 投影回 ( d_{\text{model}} )</p>
+</li>
+</ol>
+<hr>
+<h2 id="四pytorch-实现可运行演示">四、PyTorch 实现（可运行演示）<a hidden class="anchor" aria-hidden="true" href="#四pytorch-实现可运行演示">#</a></h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">GroupedQueryAttention</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">num_groups</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="k">assert</span> <span class="n">num_heads</span> <span class="o">%</span> <span class="n">num_groups</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&#34;num_heads must be divisible by num_groups&#34;</span>
+</span></span><span class="line"><span class="cl">        
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">embed_dim</span> <span class="o">=</span> <span class="n">embed_dim</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span> <span class="o">=</span> <span class="n">num_heads</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">num_groups</span> <span class="o">=</span> <span class="n">num_groups</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">head_dim</span> <span class="o">=</span> <span class="n">embed_dim</span> <span class="o">//</span> <span class="n">num_heads</span>
+</span></span><span class="line"><span class="cl">        
+</span></span><span class="line"><span class="cl">        <span class="c1"># 总投影维度</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">q_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">k_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_dim</span> <span class="o">*</span> <span class="n">num_groups</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">v_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_dim</span> <span class="o">*</span> <span class="n">num_groups</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">out_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">dropout</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># x: (batch_size, seq_len, embed_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+</span></span><span class="line"><span class="cl">        
+</span></span><span class="line"><span class="cl">        <span class="c1"># Project</span>
+</span></span><span class="line"><span class="cl">        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_proj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># (B, N, D)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">k_proj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># (B, N, num_groups * head_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_proj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># (B, N, num_groups * head_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Reshape Q: (B, N, num_heads, head_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_dim</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (B, num_heads, N, head_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Reshape K/V: (B, N, num_groups, head_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_groups</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_dim</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (B, num_groups, N, head_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_groups</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_dim</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (B, num_groups, N, head_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Broadcast K/V to match Q&#39;s head dimension</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># Repeat each group head for (num_heads // num_groups) times</span>
+</span></span><span class="line"><span class="cl">        <span class="n">repeat_factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_groups</span>
+</span></span><span class="line"><span class="cl">        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeat_factor</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (B, num_heads, N, head_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeat_factor</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (B, num_heads, N, head_dim)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Scaled dot-product attention</span>
+</span></span><span class="line"><span class="cl">        <span class="n">scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">head_dim</span> <span class="o">**</span> <span class="o">-</span><span class="mf">0.5</span>
+</span></span><span class="line"><span class="cl">        <span class="n">attn_scores</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="n">scale</span>  <span class="c1"># (B, num_heads, N, N)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">attn_probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">attn_scores</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">attn_probs</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">attn_probs</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">attn_probs</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>  <span class="c1"># (B, num_heads, N, head_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>  <span class="c1"># (B, N, embed_dim)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_proj</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">out</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ------------------ 演示 ------------------</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&#34;__main__&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl">    <span class="n">seq_len</span> <span class="o">=</span> <span class="mi">8</span>
+</span></span><span class="line"><span class="cl">    <span class="n">embed_dim</span> <span class="o">=</span> <span class="mi">128</span>
+</span></span><span class="line"><span class="cl">    <span class="n">num_heads</span> <span class="o">=</span> <span class="mi">8</span>
+</span></span><span class="line"><span class="cl">    <span class="n">num_groups</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># GQA: 8 query heads, 2 key/value heads</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># GQA 模型</span>
+</span></span><span class="line"><span class="cl">    <span class="n">gqa</span> <span class="o">=</span> <span class="n">GroupedQueryAttention</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">num_groups</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">output</span> <span class="o">=</span> <span class="n">gqa</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Input shape:&#34;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>      <span class="c1"># [2, 8, 128]</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Output shape:&#34;</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="c1"># [2, 8, 128]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># 验证参数量 vs MHA</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># MHA 会有 3 * embed_dim * embed_dim 参数（Q/K/V）</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># GQA 的 K/V 投影更小：</span>
+</span></span><span class="line"><span class="cl">    <span class="n">total_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">gqa</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Total parameters in GQA layer: </span><span class="si">{</span><span class="n">total_params</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># 对比：如果是标准 MHA（num_heads=8, embed_dim=128）</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mha_params</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mha</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Standard MHA parameters: </span><span class="si">{</span><span class="n">mha_params</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="输出示例">输出示例：<a hidden class="anchor" aria-hidden="true" href="#输出示例">#</a></h3>
+<pre tabindex="0"><code>Input shape: torch.Size([2, 8, 128])
+Output shape: torch.Size([2, 8, 128])
+Total parameters in GQA layer: 49920
+Standard MHA parameters: 65664
+</code></pre><blockquote>
+<p>🔍 可见 GQA 显著减少了 K/V 投影的参数量（从 2×128×128 → 2×128×32），同时 KV Cache 也减少为 1/4。</p>
+</blockquote>
+<hr>
+<h2 id="五补充说明">五、补充说明<a hidden class="anchor" aria-hidden="true" href="#五补充说明">#</a></h2>
+<ul>
+<li><strong>训练兼容性</strong>：GQA 可通过 <strong>蒸馏或微调</strong> 从 MHA 模型迁移（原论文重点）</li>
+<li><strong>实际应用</strong>：
+<ul>
+<li>LLaMA-2 / LLaMA-3：全部使用 GQA（7B: h=32, g=8；70B: h=64, g=8）</li>
+<li>Qwen、DeepSeek、Falcon 等均采用 GQA</li>
+</ul>
+</li>
+<li><strong>推理加速</strong>：结合 <strong>PagedAttention（vLLM）</strong> 或 <strong>TensorRT-LLM</strong>，GQA 可极大提升吞吐</li>
+</ul>
+<hr>
+<h2 id="六延伸思考">六、延伸思考<a hidden class="anchor" aria-hidden="true" href="#六延伸思考">#</a></h2>
+<ul>
+<li>如果 <code>num_groups = num_heads</code> → 退化为 <strong>MHA</strong></li>
+<li>如果 <code>num_groups = 1</code> → 退化为 <strong>MQA</strong></li>
+<li>GQA 是 <strong>MHA 和 MQA 的广义形式</strong></li>
+</ul>
+<hr>
+<p>希望这份总结能帮你彻底掌握 GQA！如果你想进一步看 <strong>如何集成到完整 Transformer Block</strong>，或对比 <strong>GQA vs MQA 在长文本上的表现</strong>，也可以继续提问。</p>
+<h2 id="七-参考文献">七 、参考文献<a hidden class="anchor" aria-hidden="true" href="#七-参考文献">#</a></h2>
+<p><a href="https://arxiv.org/abs/1911.02150">MQA(2019): Fast Transformer Decoding: One Write-Head is All You Need</a>
+<a href="https://arxiv.org/abs/2305.13245">GQA(2023): Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints</a></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">My work notes</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

@@ -171,6 +171,97 @@
 
 <article class="post-entry"> 
   <header class="entry-header">
+    <h2 class="entry-hint-parent">MLA：Multi-head Latent Attention
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>一、MLA 的由来 背景：KV Cache 成为推理瓶颈 在 Transformer 解码器中，自回归生成时需缓存所有历史 token 的 Key 和 Value（即 KV Cache）。随着上下文长度增长（如 32K、128K tokens），KV Cache 占用大量显存和带宽，成为推理效率的主要瓶颈。
+目标：压缩 KV Cache 为减少 KV Cache 大小，研究者提出多种压缩方法：
+MQA（Multi-Query Attention）：所有头共享一组 K/V。 GQA（Grouped-Query Attention）：将多个头分组共享 K/V。 MLA（Multi-head Latent Attention）：不直接存储原始 K/V，而是学习一个低维“潜在表示”（latent code），通过小型网络动态重建近似的 K/V。 提出者与出处 DeepSeek-V2（2024） 首次系统性提出并命名 MLA（Multi-head Latent Attention）。 核心思想：用 低秩潜在向量 &#43; 小型投影网络 代替传统 KV Cache，大幅降低内存占用（论文称减少 77% KV Cache）。 二、基本原理 MLA 的核心思想是：
+不显式存储每个 token 的 K 和 V，而是存储一个紧凑的“潜在向量” ( z_t \in \mathbb{R}^{d_z} )（( d_z \ll d_k, d_v )），在需要时通过轻量级可学习映射 ( f_K, f_V ) 动态重建 K 和 V。
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2026-01-07 00:00:00 +0000 UTC'>January 7, 2026</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to MLA：Multi-head Latent Attention" href="http://localhost:1313/llm/architecture/mla/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">SwiGLU激活函数解析
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。
+一、SwiGLU 的由来 SwiGLU 最早由 Shazeer (2020) 在论文《GLU Variants Improve Transformer》中系统性地提出并评估。该工作探索了多种基于 Gated Linear Unit (GLU) 的激活函数变体，并发现 SwiGLU 在语言建模任务中表现最优。
+背景：GLU（Gated Linear Unit） GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：
+[ \text{GLU}(x) = (W_1 x &#43; b_1) \otimes \sigma(W_2 x &#43; b_2) ]
+其中：
+( \otimes ) 表示逐元素乘法（Hadamard product）， ( \sigma ) 是 Sigmoid 激活函数。 GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。
+SwiGLU 的改进 SwiGLU 将 GLU 中的 Sigmoid 替换为 Swish（也称 SiLU）激活函数：
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2026-01-07 00:00:00 +0000 UTC'>January 7, 2026</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to SwiGLU激活函数解析" href="http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">ALiBi - 解决传统位置编码外推问题
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>一、ALiBi 的由来：为什么需要它？ 1. 传统位置编码的外推问题 在标准 Transformer 中，位置信息通过 绝对位置编码（如正弦、可学习）或相对位置编码（如 RoPE） 注入。但这些方法在 训练长度 &lt; 推理长度 时表现不佳：
+绝对位置编码：无法处理训练时未见过的位置索引 RoPE：虽可通过插值（如 YaRN）扩展，但外推能力仍有限，且需额外调参 💡 问题核心：位置编码与序列长度强耦合
+2. ALiBi 的提出 论文：《Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation》（ICLR 2022） 作者：Ofir Press et al.（来自 AI21 Labs） 核心思想：完全移除位置编码，改用 与距离成线性关系的偏置（bias） 直接加到 attention score 上 ✅ 优势：
+模型可在短序列上训练，在超长序列上直接推理（无需微调） 架构更简洁（无位置嵌入层） 在长上下文任务上表现优异 被 BLOOM（176B） 等大模型采用 二、基本原理 ALiBi 的关键洞察是：
+人类语言中，近期 token 通常比远期 token 更相关。
+因此，注意力应天然倾向于 局部性（locality），且衰减速度可 head-specific 控制。
+为此，ALiBi 在计算 attention score 时，对每个 head 引入一个 线性偏置项：
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2026-01-04 00:00:00 +0000 UTC'>January 4, 2026</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to ALiBi - 解决传统位置编码外推问题" href="http://localhost:1313/llm/architecture/alibi-%E8%A7%A3%E5%86%B3%E4%BC%A0%E7%BB%9F%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81%E5%A4%96%E6%8E%A8%E9%97%AE%E9%A2%98/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">RMSNorm解析 - Root Mean Square Layer Normalization
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>RMSNorm（Root Mean Square Layer Normalization）是一种用于归一化层输入的归一化方法，它基于输入向量的均方根（RMS）作为归一化的权重。RMSNorm 的主要作用是提高训练效率，并防止梯度爆炸。
+一、RMSNorm 的由来 1. Layer Normalization（LayerNorm）的局限性 在 Transformer 架构中，LayerNorm 被广泛用于稳定训练。其标准形式为：
+[ \text{LayerNorm}(x) = \gamma \cdot \frac{x - \mu}{\sqrt{\sigma^2 &#43; \epsilon}} &#43; \beta ]
+其中：
+(\mu = \frac{1}{d}\sum_{i=1}^d x_i)（均值） (\sigma^2 = \frac{1}{d}\sum_{i=1}^d (x_i - \mu)^2)（方差） 虽然有效，但 减去均值（centering）操作在语言建模任务中可能并非必要，甚至可能干扰某些表示。
+2. RMSNorm 的提出 论文：《Root Mean Square Layer Normalization》（ICLR 2020） 作者：Biao Zhang, Rico Sennrich（来自爱丁堡大学 &amp; Amazon） 核心思想：去掉 centering（即不减均值），仅做 scaling（缩放），用更简单的归一化方式达到类似甚至更好的效果。 ✅ 优势：
+计算更简单（少一次减均值） 减少计算开销（约 7%~10% faster） 在 NLP 任务上性能相当或略优 更适合大规模自回归语言模型 如今，LLaMA、Qwen、Mistral、DeepSeek 等主流大模型全部采用 RMSNorm，而非 LayerNorm。
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2026-01-04 00:00:00 +0000 UTC'>January 4, 2026</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to RMSNorm解析 - Root Mean Square Layer Normalization" href="http://localhost:1313/llm/architecture/rmsnorm%E8%A7%A3%E6%9E%90/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">GQA - Grouped-query Attention 分组查询注意力
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。
+它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。
+一、GQA 的由来：为什么需要 GQA？ 在标准的 Multi-Head Attention（MHA） 中：
+Query（Q）、Key（K）、Value（V） 都被分成 h 个头，每个头独立计算注意力。 推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：
+[ \text{Cache Size} = 2 \times h \times n \times d_k ] 其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。 当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。
+替代方案对比： 方法 Q 头数 K/V 头数 KV Cache 表达能力 MHA（多头注意力） h h 大 强 MQA（多查询注意力） h 1 极小 弱（性能下降明显） GQA（分组查询注意力） h g（g ≪ h） 中等 接近 MHA 💡 GQA 由 Google 在 2023 年论文《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》提出，旨在 平衡效率与性能。
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-12-31 00:00:00 +0000 UTC'>December 31, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to GQA - Grouped-query Attention 分组查询注意力" href="http://localhost:1313/llm/architecture/gqa/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
     <h2 class="entry-hint-parent">YaRN -  旋转位置编码拓展
     </h2>
   </header>
@@ -201,7 +292,7 @@ MoE 在 Transformer 中的位置 在标准 Transformer 中，每个 Transformer 
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-12-24 00:00:00 +0000 UTC'>December 24, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
-  <a class="entry-link" aria-label="post link to MOE - 混合专家架构" href="http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/"></a>
+  <a class="entry-link" aria-label="post link to MOE - 混合专家架构" href="http://localhost:1313/llm/architecture/moe/"></a>
 </article>
 
 <article class="post-entry"> 
@@ -287,7 +378,7 @@ Mamba：将注意力机制替换为结构化状态空间模型（SSM），通过
     </main>
     
 <footer class="footer">
-        <span>&copy; 2025 <a href="http://localhost:1313/">My work notes</a></span> · 
+        <span>&copy; 2026 <a href="http://localhost:1313/">My work notes</a></span> · 
 
     <span>
         Powered by

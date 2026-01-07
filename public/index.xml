@@ -6,8 +6,189 @@
     <description>Recent content in 欢迎来到我的工作空间 on My work notes</description>
     <generator>Hugo -- 0.152.2</generator>
     <language>zh-CN</language>
-    <lastBuildDate>Thu, 25 Dec 2025 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 07 Jan 2026 00:00:00 +0000</lastBuildDate>
     <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>MLA：Multi-head Latent Attention</title>
+      <link>http://localhost:1313/llm/architecture/mla/</link>
+      <pubDate>Wed, 07 Jan 2026 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/mla/</guid>
+      <description>&lt;h2 id=&#34;一mla-的由来&#34;&gt;一、MLA 的由来&lt;/h2&gt;
+&lt;h3 id=&#34;背景kv-cache-成为推理瓶颈&#34;&gt;背景：KV Cache 成为推理瓶颈&lt;/h3&gt;
+&lt;p&gt;在 Transformer 解码器中，自回归生成时需缓存所有历史 token 的 Key 和 Value（即 KV Cache）。随着上下文长度增长（如 32K、128K tokens），KV Cache 占用大量显存和带宽，成为推理效率的主要瓶颈。&lt;/p&gt;
+&lt;h3 id=&#34;目标压缩-kv-cache&#34;&gt;目标：压缩 KV Cache&lt;/h3&gt;
+&lt;p&gt;为减少 KV Cache 大小，研究者提出多种压缩方法：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;MQA（Multi-Query Attention）&lt;/strong&gt;：所有头共享一组 K/V。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;GQA（Grouped-Query Attention）&lt;/strong&gt;：将多个头分组共享 K/V。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;MLA（Multi-head Latent Attention）&lt;/strong&gt;：&lt;strong&gt;不直接存储原始 K/V，而是学习一个低维“潜在表示”（latent code），通过小型网络动态重建近似的 K/V&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;提出者与出处&#34;&gt;提出者与出处&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;DeepSeek-V2（2024）&lt;/strong&gt; 首次系统性提出并命名 &lt;strong&gt;MLA（Multi-head Latent Attention）&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;核心思想：用 &lt;strong&gt;低秩潜在向量 + 小型投影网络&lt;/strong&gt; 代替传统 KV Cache，大幅降低内存占用（论文称减少 77% KV Cache）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;img src=&#34;MLA.jpg&#34; alt=&#34;MLA&#34; style=&#34;width:80%;height:auto;&#34;&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二基本原理&#34;&gt;二、基本原理&lt;/h2&gt;
+&lt;p&gt;MLA 的核心思想是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;不显式存储每个 token 的 K 和 V，而是存储一个紧凑的“潜在向量” ( z_t \in \mathbb{R}^{d_z} )（( d_z \ll d_k, d_v )），在需要时通过轻量级可学习映射 ( f_K, f_V ) 动态重建 K 和 V。&lt;/strong&gt;&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>SwiGLU激活函数解析</title>
+      <link>http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/</link>
+      <pubDate>Wed, 07 Jan 2026 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/swiglu%E6%BF%80%E6%B4%BB%E5%87%BD%E6%95%B0/</guid>
+      <description>&lt;p&gt;SwiGLU（Swish-Gated Linear Unit）是一种在现代大语言模型（如PaLM、LLaMA等）中广泛使用的激活函数变体，用于替代传统的前馈网络（Feed-Forward Network, FFN）中的 ReLU 或 GELU。它结合了门控机制（gating）与 Swish 激活函数，具有更强的表达能力和训练稳定性。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一swiglu-的由来&#34;&gt;一、SwiGLU 的由来&lt;/h2&gt;
+&lt;p&gt;SwiGLU 最早由 &lt;strong&gt;Shazeer (2020)&lt;/strong&gt; 在论文《&lt;strong&gt;GLU Variants Improve Transformer&lt;/strong&gt;》中系统性地提出并评估。该工作探索了多种基于 &lt;strong&gt;Gated Linear Unit (GLU)&lt;/strong&gt; 的激活函数变体，并发现 &lt;strong&gt;SwiGLU&lt;/strong&gt; 在语言建模任务中表现最优。&lt;/p&gt;
+&lt;h3 id=&#34;背景glugated-linear-unit&#34;&gt;背景：GLU（Gated Linear Unit）&lt;/h3&gt;
+&lt;p&gt;GLU 最初由 Dauphin 等人（2017）在《Language Modeling with Gated Convolutional Networks》中提出，其基本形式为：&lt;/p&gt;
+&lt;p&gt;[
+\text{GLU}(x) = (W_1 x + b_1) \otimes \sigma(W_2 x + b_2)
+]&lt;/p&gt;
+&lt;p&gt;其中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;( \otimes ) 表示逐元素乘法（Hadamard product），&lt;/li&gt;
+&lt;li&gt;( \sigma ) 是 Sigmoid 激活函数。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;GLU 引入了“门控”思想：一部分线性变换被另一部分通过激活函数“门控”，从而实现更灵活的信息控制。&lt;/p&gt;
+&lt;h3 id=&#34;swiglu-的改进&#34;&gt;SwiGLU 的改进&lt;/h3&gt;
+&lt;p&gt;SwiGLU 将 GLU 中的 Sigmoid 替换为 &lt;strong&gt;Swish&lt;/strong&gt;（也称 SiLU）激活函数：&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>ALiBi - 解决传统位置编码外推问题</title>
+      <link>http://localhost:1313/llm/architecture/alibi-%E8%A7%A3%E5%86%B3%E4%BC%A0%E7%BB%9F%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81%E5%A4%96%E6%8E%A8%E9%97%AE%E9%A2%98/</link>
+      <pubDate>Sun, 04 Jan 2026 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/alibi-%E8%A7%A3%E5%86%B3%E4%BC%A0%E7%BB%9F%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81%E5%A4%96%E6%8E%A8%E9%97%AE%E9%A2%98/</guid>
+      <description>&lt;h2 id=&#34;一alibi-的由来为什么需要它&#34;&gt;一、ALiBi 的由来：为什么需要它？&lt;/h2&gt;
+&lt;h3 id=&#34;1-传统位置编码的外推问题&#34;&gt;1. 传统位置编码的外推问题&lt;/h3&gt;
+&lt;p&gt;在标准 Transformer 中，位置信息通过 &lt;strong&gt;绝对位置编码（如正弦、可学习）或相对位置编码（如 RoPE）&lt;/strong&gt; 注入。但这些方法在 &lt;strong&gt;训练长度 &amp;lt; 推理长度&lt;/strong&gt; 时表现不佳：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;绝对位置编码&lt;/strong&gt;：无法处理训练时未见过的位置索引&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RoPE&lt;/strong&gt;：虽可通过插值（如 YaRN）扩展，但外推能力仍有限，且需额外调参&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;💡 问题核心：&lt;strong&gt;位置编码与序列长度强耦合&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;2-alibi-的提出&#34;&gt;2. ALiBi 的提出&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;论文&lt;/strong&gt;：《&lt;a href=&#34;https://arxiv.org/abs/2108.12409&#34;&gt;Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation&lt;/a&gt;》（ICLR 2022）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;作者&lt;/strong&gt;：Ofir Press et al.（来自 AI21 Labs）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;核心思想&lt;/strong&gt;：&lt;strong&gt;完全移除位置编码&lt;/strong&gt;，改用 &lt;strong&gt;与距离成线性关系的偏置（bias）&lt;/strong&gt; 直接加到 attention score 上&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;✅ 优势：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;模型可在短序列上训练，在超长序列上直接推理（无需微调）&lt;/li&gt;
+&lt;li&gt;架构更简洁（无位置嵌入层）&lt;/li&gt;
+&lt;li&gt;在长上下文任务上表现优异&lt;/li&gt;
+&lt;li&gt;被 &lt;strong&gt;BLOOM（176B）&lt;/strong&gt; 等大模型采用&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二基本原理&#34;&gt;二、基本原理&lt;/h2&gt;
+&lt;p&gt;ALiBi 的关键洞察是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;人类语言中，近期 token 通常比远期 token 更相关&lt;/strong&gt;。&lt;br&gt;
+因此，注意力应天然倾向于 &lt;strong&gt;局部性（locality）&lt;/strong&gt;，且衰减速度可 head-specific 控制。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;为此，ALiBi 在计算 attention score 时，对每个 head 引入一个 &lt;strong&gt;线性偏置项&lt;/strong&gt;：&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>RMSNorm解析 - Root Mean Square Layer Normalization</title>
+      <link>http://localhost:1313/llm/architecture/rmsnorm%E8%A7%A3%E6%9E%90/</link>
+      <pubDate>Sun, 04 Jan 2026 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/rmsnorm%E8%A7%A3%E6%9E%90/</guid>
+      <description>&lt;p&gt;RMSNorm（Root Mean Square Layer Normalization）是一种用于归一化层输入的归一化方法，它基于输入向量的均方根（RMS）作为归一化的权重。RMSNorm 的主要作用是提高训练效率，并防止梯度爆炸。&lt;/p&gt;
+&lt;h2 id=&#34;一rmsnorm-的由来&#34;&gt;一、RMSNorm 的由来&lt;/h2&gt;
+&lt;h3 id=&#34;1-layer-normalizationlayernorm的局限性&#34;&gt;1. Layer Normalization（LayerNorm）的局限性&lt;/h3&gt;
+&lt;p&gt;在 Transformer 架构中，&lt;strong&gt;LayerNorm&lt;/strong&gt; 被广泛用于稳定训练。其标准形式为：&lt;/p&gt;
+&lt;p&gt;[
+\text{LayerNorm}(x) = \gamma \cdot \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} + \beta
+]&lt;/p&gt;
+&lt;p&gt;其中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;(\mu = \frac{1}{d}\sum_{i=1}^d x_i)（均值）&lt;/li&gt;
+&lt;li&gt;(\sigma^2 = \frac{1}{d}\sum_{i=1}^d (x_i - \mu)^2)（方差）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;虽然有效，但 &lt;strong&gt;减去均值（centering）操作在语言建模任务中可能并非必要&lt;/strong&gt;，甚至可能干扰某些表示。&lt;/p&gt;
+&lt;h3 id=&#34;2-rmsnorm-的提出&#34;&gt;2. RMSNorm 的提出&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;论文&lt;/strong&gt;：《&lt;a href=&#34;https://arxiv.org/abs/1910.07467&#34;&gt;Root Mean Square Layer Normalization&lt;/a&gt;》（ICLR 2020）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;作者&lt;/strong&gt;：Biao Zhang, Rico Sennrich（来自爱丁堡大学 &amp;amp; Amazon）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;核心思想&lt;/strong&gt;：&lt;strong&gt;去掉 centering（即不减均值），仅做 scaling（缩放）&lt;/strong&gt;，用更简单的归一化方式达到类似甚至更好的效果。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;✅ 优势：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;计算更简单（少一次减均值）&lt;/li&gt;
+&lt;li&gt;减少计算开销（约 7%~10% faster）&lt;/li&gt;
+&lt;li&gt;在 NLP 任务上性能相当或略优&lt;/li&gt;
+&lt;li&gt;更适合大规模自回归语言模型&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;如今，&lt;strong&gt;LLaMA、Qwen、Mistral、DeepSeek 等主流大模型全部采用 RMSNorm&lt;/strong&gt;，而非 LayerNorm。&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>GQA - Grouped-query Attention 分组查询注意力</title>
+      <link>http://localhost:1313/llm/architecture/gqa/</link>
+      <pubDate>Wed, 31 Dec 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/gqa/</guid>
+      <description>&lt;p&gt;GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每组共享同一个键/值头（Key/Value head），在显著降低KV缓存和计算开销的同时，保持接近多头注意力（MHA）的模型性能。&lt;/p&gt;
+&lt;p&gt;它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。&lt;/p&gt;
+&lt;h2 id=&#34;一gqa-的由来为什么需要-gqa&#34;&gt;一、GQA 的由来：为什么需要 GQA？&lt;/h2&gt;
+&lt;p&gt;在标准的 &lt;strong&gt;Multi-Head Attention（MHA）&lt;/strong&gt; 中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Query（Q）、Key（K）、Value（V） 都被分成 &lt;strong&gt;h 个头&lt;/strong&gt;，每个头独立计算注意力。&lt;/li&gt;
+&lt;li&gt;推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：&lt;br&gt;
+[
+\text{Cache Size} = 2 \times h \times n \times d_k
+]
+其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;当模型变大（如 LLaMA-65B，h=64），&lt;strong&gt;KV Cache 占用大量显存&lt;/strong&gt;，成为推理瓶颈。&lt;/p&gt;
+&lt;img src=&#34;GQA.png&#34; alt=&#34;GQA&#34; style=&#34;width:80%;height:auto;&#34;&gt;
+&lt;h3 id=&#34;替代方案对比&#34;&gt;替代方案对比：&lt;/h3&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;方法&lt;/th&gt;
+          &lt;th&gt;Q 头数&lt;/th&gt;
+          &lt;th&gt;K/V 头数&lt;/th&gt;
+          &lt;th&gt;KV Cache&lt;/th&gt;
+          &lt;th&gt;表达能力&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;MHA（多头注意力）&lt;/td&gt;
+          &lt;td&gt;h&lt;/td&gt;
+          &lt;td&gt;h&lt;/td&gt;
+          &lt;td&gt;大&lt;/td&gt;
+          &lt;td&gt;强&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;MQA（多查询注意力）&lt;/td&gt;
+          &lt;td&gt;h&lt;/td&gt;
+          &lt;td&gt;1&lt;/td&gt;
+          &lt;td&gt;极小&lt;/td&gt;
+          &lt;td&gt;弱（性能下降明显）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;GQA（分组查询注意力）&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;h&lt;/td&gt;
+          &lt;td&gt;g（g ≪ h）&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;中等&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;接近 MHA&lt;/strong&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;blockquote&gt;
+&lt;p&gt;💡 GQA 由 Google 在 2023 年论文《&lt;a href=&#34;https://arxiv.org/abs/2305.13245&#34;&gt;GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints&lt;/a&gt;》提出，旨在 &lt;strong&gt;平衡效率与性能&lt;/strong&gt;。&lt;/p&gt;</description>
+    </item>
     <item>
       <title>YaRN -  旋转位置编码拓展</title>
       <link>http://localhost:1313/llm/architecture/yarn%E6%8E%A8%E7%90%86%E6%89%A9%E5%B1%95%E6%8A%80%E6%9C%AF/</link>
@@ -37,9 +218,9 @@
     </item>
     <item>
       <title>MOE - 混合专家架构</title>
-      <link>http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</link>
+      <link>http://localhost:1313/llm/architecture/moe/</link>
       <pubDate>Wed, 24 Dec 2025 00:00:00 +0000</pubDate>
-      <guid>http://localhost:1313/llm/architecture/moe/%E6%B7%B7%E5%90%88%E4%B8%93%E5%AE%B6%E6%9E%B6%E6%9E%84moe/</guid>
+      <guid>http://localhost:1313/llm/architecture/moe/</guid>
       <description>&lt;p&gt;混合专家（Mixture of Experts, MoE）是一种**条件计算（conditional computation）**架构，旨在在不显著增加计算成本的前提下扩展模型容量。它已被广泛应用于现代大语言模型（如 Google 的 GLaM、Mixtral、Qwen-MoE、DeepSeek-MoE 等）。&lt;/p&gt;
 &lt;h2 id=&#34;moe-的核心思想&#34;&gt;MoE 的核心思想&lt;/h2&gt;
 &lt;ul&gt;
