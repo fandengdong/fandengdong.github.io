@@ -166,7 +166,43 @@
 </header>
 <div class="post-content"><p>asyncio 是 Python 标准库中的异步 I/O 框架，用于编写高并发、事件驱动的程序。它基于 协程（coroutine） 和 事件循环（event loop），特别适合处理大量 I/O 密集型任务（如网络请求、文件读写、数据库访问等）。</p>
 <p>下面是一个简单的例子，展示如何使用 asyncio 创建一个异步任务：</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">asyncio</span>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">asyncio</span>
 </span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">time</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="k">async</span> <span class="k">def</span> <span class="nf">task1</span><span class="p">():</span>
@@ -198,8 +234,23 @@
 </span></span><span class="line"><span class="cl"><span class="c1">#     await asyncio.gather(task1(), task2())</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
-</span></span></code></pre></div><p>这段代码输出为：</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">[</span>1764148547.33<span class="o">]</span> main: 创建 t1
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这段代码输出为：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="o">[</span>1764148547.33<span class="o">]</span> main: 创建 t1
 </span></span><span class="line"><span class="cl"><span class="o">[</span>1764148547.33<span class="o">]</span> main: 创建 t2
 </span></span><span class="line"><span class="cl"><span class="o">[</span>1764148547.33<span class="o">]</span> main: 开始 await t1
 </span></span><span class="line"><span class="cl"><span class="o">[</span>1764148547.33<span class="o">]</span> 开始做任务1
@@ -208,7 +259,9 @@
 </span></span><span class="line"><span class="cl"><span class="o">[</span>1764148549.33<span class="o">]</span> 任务2完成
 </span></span><span class="line"><span class="cl"><span class="o">[</span>1764148549.33<span class="o">]</span> main: await t1 完成
 </span></span><span class="line"><span class="cl"><span class="o">[</span>1764148549.33<span class="o">]</span> main: 全部结束
-</span></span></code></pre></div><blockquote>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><blockquote>
 <p>💡 asyncio 让你在单线程中高效“同时”处理成百上千个 I/O 操作，核心秘诀是——在等待时去做别的事。</p>
 </blockquote>
 

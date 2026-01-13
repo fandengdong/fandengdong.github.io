@@ -189,6 +189,22 @@
 
 <article class="post-entry"> 
   <header class="entry-header">
+    <h2 class="entry-hint-parent">Mamba - A Transformer-like Architecture for Long Sequence Modeling
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>一、Mamba 的设计思想 背景：Transformer 的局限性 自注意力机制的时间复杂度为 $O(L^2)$（L 为序列长度），对长序列（如基因组、高分辨率音频、长文本）效率低。 线性注意力等近似方法牺牲了建模能力。 RNN / SSM（状态空间模型） 具有线性复杂度 $O(L)$，但传统 SSM（如 Linear Time-Invariant SSM, LTI-SSM）是时不变的，无法像 Transformer 那样根据输入内容动态调整行为。 Mamba 的核心创新 Selective State Space Model (SSM) —— 将 SSM 与输入相关（input-dependent），使其具备上下文感知能力，同时保持线性复杂度。
+关键点：
+选择性（Selectivity）：SSM 的参数（如 A, B, C）不再是固定或仅时间相关的，而是由当前输入 token 动态生成。 硬件感知设计：利用现代 GPU 的并行特性，通过“扫描（scan）&#43; 并行前缀”实现高效训练。 结构简单：没有 attention，只有 MLP &#43; SSM block。 二、Mamba 架构概览 Mamba Block 替代了 Transformer 中的 Attention &#43; MLP 子层：
+Input → LayerNorm → SSM (Selective SSM) → Residual Add → LayerNorm → MLP → Residual Add → Output 其中最核心的是 Selective SSM 模块。
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-01-13 00:00:00 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to Mamba - A Transformer-like Architecture for Long Sequence Modeling" href="http://localhost:1313/llm/architecture/mamba/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
     <h2 class="entry-hint-parent">GDN - Qwen3-Next中引入的一种状态空间模型变体
     </h2>
   </header>

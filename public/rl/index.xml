@@ -6,7 +6,119 @@
     <description>Recent content in 强化学习 (RL) on My work notes</description>
     <generator>Hugo -- 0.152.2</generator>
     <language>zh-CN</language>
+    <lastBuildDate>Mon, 13 Jan 2025 00:00:00 +0000</lastBuildDate>
     <atom:link href="http://localhost:1313/rl/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>GRPO - Group Relative Policy Optimization</title>
+      <link>http://localhost:1313/rl/grpo/</link>
+      <pubDate>Mon, 13 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/rl/grpo/</guid>
+      <description>&lt;h3 id=&#34;1背景&#34;&gt;1.背景&lt;/h3&gt;
+&lt;p&gt;在传统 PPO 中，目标函数为：
+$$
+L^{\text{PPO}}(\theta) = \mathbb{E}_t \left[ \min\left( r_t(\theta) \hat{A}_t,\ \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_t \right) \right]
+$$
+其中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;$r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\text{old}}(a_t|s_t)}$ 是重要性采样比；&lt;/li&gt;
+&lt;li&gt;$\hat{A}_t$ 是通过 critic 估计的优势函数（如 GAE）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;GRPO 的关键突破&lt;/strong&gt;：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;不依赖 critic，而是通过同一 prompt 下多个 responses 构造一个无偏/低方差的“组内相对优势估计”&lt;/strong&gt;，并保留重要性采样结构。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;2-形式化定义&#34;&gt;2. 形式化定义&lt;/h3&gt;
+&lt;h4 id=&#34;1数据生成&#34;&gt;（1）数据生成&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;对每个 prompt $x$，使用&lt;strong&gt;旧策略 $\pi_{\text{old}}$&lt;/strong&gt;（即当前策略的快照）生成 $K$ 个 responses：${y^{(1)}, \dots, y^{(K)}}$&lt;/li&gt;
+&lt;li&gt;每个 response $y^{(i)}$ 由 token 序列组成，记其轨迹为 $\tau_i = (x, y^{(i)})$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;2奖励与优势构造&#34;&gt;（2）奖励与优势构造&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;使用奖励模型获得标量奖励：$r_i = \text{ORM}(x, y^{(i)})$&lt;/li&gt;
+&lt;li&gt;定义&lt;strong&gt;组内相对优势（Group-Relative Advantage）&lt;/strong&gt;：
+$$
+\hat{A}_i = \frac{r_i - \text{mean}(r)}{\text{std}(r)}
+$$
+&lt;blockquote&gt;
+&lt;p&gt;即：每个 response 的优势 = 其奖励 - 组内平均奖励。这相当于一种&lt;strong&gt;去中心化的优势估计&lt;/strong&gt;，无需 value function。&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>MOPD - 多教师在线策略蒸馏</title>
+      <link>http://localhost:1313/rl/mopd/</link>
+      <pubDate>Mon, 13 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/rl/mopd/</guid>
+      <description>&lt;h2 id=&#34;1-概述&#34;&gt;&lt;strong&gt;1. 概述&lt;/strong&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;strong&gt;MOPD&lt;/strong&gt;（Multi-Teacher On-Policy Distillation）是一种先进的&lt;strong&gt;强化学习与知识蒸馏相结合的模型训练框架&lt;/strong&gt;，旨在将多个领域专用的“教师模型”（specialized teachers）的知识高效地整合到一个统一的“学生模型”中。该方法特别适用于大型语言模型（LLMs）在复杂、多样化任务中的能力迁移与融合。&lt;/p&gt;
+&lt;p&gt;MOPD 的核心思想是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;通过在线策略蒸馏（on-policy distillation）机制，让一个通用的学生模型从多个专业化教师模型中学习，同时保留并增强其在不同领域的性能表现。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;本算法基于 &lt;strong&gt;SFT（Supervised Fine-Tuning）&lt;/strong&gt; 和 &lt;strong&gt;领域特定强化学习（domain-specific RL）&lt;/strong&gt; 训练出多个专业教师模型，并进一步利用&lt;strong&gt;逆KL散度损失&lt;/strong&gt;和&lt;strong&gt;重要性采样&lt;/strong&gt;技术，实现高效的多教师知识迁移。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;2-背景知识&#34;&gt;&lt;strong&gt;2. 背景知识&lt;/strong&gt;&lt;/h2&gt;
+&lt;h3 id=&#34;21-传统知识蒸馏-vs-多教师蒸馏&#34;&gt;&lt;strong&gt;2.1 传统知识蒸馏 vs. 多教师蒸馏&lt;/strong&gt;&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;传统知识蒸馏&lt;/strong&gt;：通常采用一个单一教师模型指导学生模型学习，例如通过软标签或特征匹配。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多教师蒸馏&lt;/strong&gt;：允许学生模型从多个专家教师中学习，每个教师擅长不同的任务或领域（如数学推理、代码生成等），从而提升学生的泛化能力和综合性能。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;然而，直接使用多教师蒸馏存在挑战：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;教师之间可能产生冲突；&lt;/li&gt;
+&lt;li&gt;学生模型难以平衡不同教师的偏好；&lt;/li&gt;
+&lt;li&gt;非对齐的策略分布可能导致训练不稳定。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;为解决这些问题，MOPD 提出了一个&lt;strong&gt;基于强化学习的在线策略蒸馏框架&lt;/strong&gt;，结合了&lt;strong&gt;反向KL散度损失&lt;/strong&gt;与&lt;strong&gt;训练-推理重要性采样&lt;/strong&gt;，以更稳定、高效地进行知识转移。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;22-关键概念介绍&#34;&gt;&lt;strong&gt;2.2 关键概念介绍&lt;/strong&gt;&lt;/h3&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;概念&lt;/th&gt;
+          &lt;th&gt;定义&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;π_θ&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;学生策略（目标策略），用于训练阶段优化&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;μ_θ&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;推理时使用的采样策略（行为策略）&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;π_domain_x&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;针对输入提示 x 所属领域的专家教师策略&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;sg[·]&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;停止梯度操作（stop-gradient），防止梯度回传&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Reverse KL Divergence&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;反向KL散度，衡量学生与教师之间的分布差异&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;3-mopd-算法原理详解&#34;&gt;&lt;strong&gt;3. MOPD 算法原理详解&lt;/strong&gt;&lt;/h2&gt;
+&lt;h3 id=&#34;31-核心目标&#34;&gt;&lt;strong&gt;3.1 核心目标&lt;/strong&gt;&lt;/h3&gt;
+&lt;p&gt;MOPD 的目标是构建一个统一的学生模型 π_θ，使其能够：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;在不同任务上表现出接近甚至超越最强教师的表现；&lt;/li&gt;
+&lt;li&gt;自动识别并采纳最合适的教师策略；&lt;/li&gt;
+&lt;li&gt;避免因教师间不一致而导致的性能下降。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;32-反向kl散度损失reverse-kl-loss&#34;&gt;&lt;strong&gt;3.2 反向KL散度损失（Reverse KL Loss）&lt;/strong&gt;&lt;/h3&gt;
+&lt;p&gt;定义如下：&lt;/p&gt;
+&lt;p&gt;$$
+\mathcal{L}&lt;em&gt;{\text{reverse-KL}}(\theta) = -\mathbb{E}&lt;/em&gt;{x \sim D, y_t \sim \pi_\theta(\cdot|x,y_{&amp;lt;t})} \log \frac{\pi_{\text{domain}&lt;em&gt;x}(y_t|x,y&lt;/em&gt;{&amp;lt;t})}{\pi_\theta(y_t|x,y_{&amp;lt;t})}
+\tag{5}
+$$&lt;/p&gt;</description>
+    </item>
     <item>
       <title></title>
       <link>http://localhost:1313/rl/verl/verl%E4%B8%ADsingle_control%E7%9A%84%E6%A0%B8%E5%BF%83%E8%AE%BE%E8%AE%A1/</link>

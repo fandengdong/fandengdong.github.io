@@ -252,7 +252,7 @@ SwiGLU 的改进 SwiGLU 将 GLU 中的 Sigmoid 替换为 Swish（也称 SiLU）�
 它在MHA（多头）和MQA（单头KV）之间取得高效与性能的平衡，已成为LLaMA、Qwen、DeepSeek等主流大模型的标准组件。
 一、GQA 的由来：为什么需要 GQA？ 在标准的 Multi-Head Attention（MHA） 中：
 Query（Q）、Key（K）、Value（V） 都被分成 h 个头，每个头独立计算注意力。 推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：
-[ \text{Cache Size} = 2 \times h \times n \times d_k ] 其中 (n) 是上下文长度，(d_k) 是每个 head 的维度。 当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。
+$$ \text{Cache Size} = 2 \times h \times n \times d_k $$ 其中 $n$ 是上下文长度，$d_k$ 是每个 head 的维度。 当模型变大（如 LLaMA-65B，h=64），KV Cache 占用大量显存，成为推理瓶颈。
 替代方案对比： 方法 Q 头数 K/V 头数 KV Cache 表达能力 MHA（多头注意力） h h 大 强 MQA（多查询注意力） h 1 极小 弱（性能下降明显） GQA（分组查询注意力） h g（g ≪ h） 中等 接近 MHA 💡 GQA 由 Google 在 2023 年论文《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》提出，旨在 平衡效率与性能。
 ...</p>
   </div>
@@ -309,7 +309,7 @@ $$ PE_{(pos,2i)} = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right) $$
 $$ PE_{(pos,2i&#43;1)} = \cos\left(\frac{pos}{10000^{2i/d_{model}}}\right) $$
 pos是位置索引，即token在序列中的位置，从0开始； i是维度索引，从0开始到$(d_{model}-1)/2$结束，表示词嵌入的维度； $d_{model}$是词嵌入（word embedding）的维度embedding_dim 观察输入句子的shape: [seq_len, embedding_dim]，位置编码的时候，pos对应的是token在seq_len维度的位置，而维度索引i对应词嵌入embedding_dim的维度。
 pytorch代码实现:
-class PositionalEncoding(nn.Module): def __init__(self, d_model, max_len=5000): super().__init__() pe = torch.zeros(max_len, d_model) position = torch.arange(0, max_len).unsqueeze(1).float() div_term = torch.exp(torch.arange(0, d_model, 2).float() * -(torch.log(torch.tensor(10000.0)) / d_model)) pe[:, 0::2] = torch.sin(position * div_term) pe[:, 1::2] = torch.cos(position * div_term) self.register_buffer(&#39;pe&#39;, pe.unsqueeze(0)) def forward(self, x): return x &#43; self.pe[:, :x.size(1)] RoPE 的核心思想 相对位置 vs 绝对位置 在传统Transformer中，位置编码是加到词嵌入上的（如 x &#43; pos_emb），这种方式只保留了绝对位置信息。 而 RoPE 则通过将查询（Q）和键（K）向量进行旋转变换，使得注意力分数自然包含两个 token 之间的相对距离。 旋转操作 对于维度为 d 的向量，RoPE 将其分成若干二维子空间（通常是相邻两个维度一组），每组应用一个二维旋转矩阵：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 class PositionalEncoding(nn.Module): def __init__(self, d_model, max_len=5000): super().__init__() pe = torch.zeros(max_len, d_model) position = torch.arange(0, max_len).unsqueeze(1).float() div_term = torch.exp(torch.arange(0, d_model, 2).float() * -(torch.log(torch.tensor(10000.0)) / d_model)) pe[:, 0::2] = torch.sin(position * div_term) pe[:, 1::2] = torch.cos(position * div_term) self.register_buffer(&#39;pe&#39;, pe.unsqueeze(0)) def forward(self, x): return x &#43; self.pe[:, :x.size(1)] RoPE 的核心思想 相对位置 vs 绝对位置 在传统Transformer中，位置编码是加到词嵌入上的（如 x &#43; pos_emb），这种方式只保留了绝对位置信息。 而 RoPE 则通过将查询（Q）和键（K）向量进行旋转变换，使得注意力分数自然包含两个 token 之间的相对距离。 旋转操作 对于维度为 d 的向量，RoPE 将其分成若干二维子空间（通常是相邻两个维度一组），每组应用一个二维旋转矩阵：
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-12-19 00:00:00 +0000 UTC'>December 19, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>

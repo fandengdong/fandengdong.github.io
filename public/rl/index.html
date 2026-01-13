@@ -196,6 +196,43 @@
 
 <article class="post-entry"> 
   <header class="entry-header">
+    <h2 class="entry-hint-parent">GRPO - Group Relative Policy Optimization
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>1.背景 在传统 PPO 中，目标函数为： $$ L^{\text{PPO}}(\theta) = \mathbb{E}_t \left[ \min\left( r_t(\theta) \hat{A}_t,\ \text{clip}(r_t(\theta), 1-\epsilon, 1&#43;\epsilon) \hat{A}_t \right) \right] $$ 其中：
+$r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\text{old}}(a_t|s_t)}$ 是重要性采样比； $\hat{A}_t$ 是通过 critic 估计的优势函数（如 GAE）。 GRPO 的关键突破：
+不依赖 critic，而是通过同一 prompt 下多个 responses 构造一个无偏/低方差的“组内相对优势估计”，并保留重要性采样结构。
+2. 形式化定义 （1）数据生成 对每个 prompt $x$，使用旧策略 $\pi_{\text{old}}$（即当前策略的快照）生成 $K$ 个 responses：${y^{(1)}, \dots, y^{(K)}}$ 每个 response $y^{(i)}$ 由 token 序列组成，记其轨迹为 $\tau_i = (x, y^{(i)})$ （2）奖励与优势构造 使用奖励模型获得标量奖励：$r_i = \text{ORM}(x, y^{(i)})$ 定义组内相对优势（Group-Relative Advantage）： $$ \hat{A}_i = \frac{r_i - \text{mean}(r)}{\text{std}(r)} $$ 即：每个 response 的优势 = 其奖励 - 组内平均奖励。这相当于一种去中心化的优势估计，无需 value function。
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-01-13 00:00:00 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to GRPO - Group Relative Policy Optimization" href="http://localhost:1313/rl/grpo/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">MOPD - 多教师在线策略蒸馏
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>1. 概述 MOPD（Multi-Teacher On-Policy Distillation）是一种先进的强化学习与知识蒸馏相结合的模型训练框架，旨在将多个领域专用的“教师模型”（specialized teachers）的知识高效地整合到一个统一的“学生模型”中。该方法特别适用于大型语言模型（LLMs）在复杂、多样化任务中的能力迁移与融合。
+MOPD 的核心思想是：
+通过在线策略蒸馏（on-policy distillation）机制，让一个通用的学生模型从多个专业化教师模型中学习，同时保留并增强其在不同领域的性能表现。
+本算法基于 SFT（Supervised Fine-Tuning） 和 领域特定强化学习（domain-specific RL） 训练出多个专业教师模型，并进一步利用逆KL散度损失和重要性采样技术，实现高效的多教师知识迁移。
+2. 背景知识 2.1 传统知识蒸馏 vs. 多教师蒸馏 传统知识蒸馏：通常采用一个单一教师模型指导学生模型学习，例如通过软标签或特征匹配。 多教师蒸馏：允许学生模型从多个专家教师中学习，每个教师擅长不同的任务或领域（如数学推理、代码生成等），从而提升学生的泛化能力和综合性能。 然而，直接使用多教师蒸馏存在挑战：
+教师之间可能产生冲突； 学生模型难以平衡不同教师的偏好； 非对齐的策略分布可能导致训练不稳定。 为解决这些问题，MOPD 提出了一个基于强化学习的在线策略蒸馏框架，结合了反向KL散度损失与训练-推理重要性采样，以更稳定、高效地进行知识转移。
+2.2 关键概念介绍 概念 定义 π_θ 学生策略（目标策略），用于训练阶段优化 μ_θ 推理时使用的采样策略（行为策略） π_domain_x 针对输入提示 x 所属领域的专家教师策略 sg[·] 停止梯度操作（stop-gradient），防止梯度回传 Reverse KL Divergence 反向KL散度，衡量学生与教师之间的分布差异 3. MOPD 算法原理详解 3.1 核心目标 MOPD 的目标是构建一个统一的学生模型 π_θ，使其能够：
+在不同任务上表现出接近甚至超越最强教师的表现； 自动识别并采纳最合适的教师策略； 避免因教师间不一致而导致的性能下降。 3.2 反向KL散度损失（Reverse KL Loss） 定义如下：
+$$ \mathcal{L}{\text{reverse-KL}}(\theta) = -\mathbb{E}{x \sim D, y_t \sim \pi_\theta(\cdot|x,y_{&lt;t})} \log \frac{\pi_{\text{domain}x}(y_t|x,y{&lt;t})}{\pi_\theta(y_t|x,y_{&lt;t})} \tag{5} $$
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-01-13 00:00:00 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to MOPD - 多教师在线策略蒸馏" href="http://localhost:1313/rl/mopd/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
     <h2 class="entry-hint-parent">
     </h2>
   </header>

@@ -14,6 +14,13 @@ markup:
     smart: true
   highlight:
     noClasses: false
+    lineNos: true          # Enable line numbers
+    lineNumbersInTable: true
+    tabWidth: 4
+    # Code folding related options
+    codeFolds:
+      enable: true         # Enable code folding functionality
+      startLine: 10        # Number of lines after which folding is enabled
   math:
     enable: true
     useKaTeX: true

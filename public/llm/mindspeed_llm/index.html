@@ -178,9 +178,7 @@
     <p>本文记录了 mindspeed-llm 框架提供的推理方法，以 Qwen2.5-7B 模型为例说明推理过程。
 准备工作 推理模型的权重需要转换为 mcore 格式，方法与微调时相同，参考这里
 开启推理测试 准备好模型权重后，可以直接使用 mindspeed-llm 提供的推理脚本进行推理测试，脚本位于examples/mcore/qwen25/generate_qwen25_7b_ptd.sh
-#!/bin/bash export CUDA_DEVICE_MAX_CONNECTIONS=1 # please fill these path configurations CHECKPOINT=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp1_pp1/&#34; TOKENIZER_PATH=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B-Instruct/&#34; # Change for multinode config MASTER_ADDR=localhost MASTER_PORT=6000 NNODES=1 NODE_RANK=0 NPUS_PER_NODE=1 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES)) TP=1 PP=1 SEQ_LENGTH=32768 ... torchrun $DISTRIBUTED_ARGS inference.py \ --use-mcore-models \ ... 可以看到对于 7B 模型，采用单卡就可以进行推理。启动方式依然为 torchrun，启动脚本为 inference.py。
-推理流程 查看inference.py文件：
-from megatron.training.initialize import initialize_megatron from mindspeed_llm.tasks.inference.module import GPTModelInfer, MegatronModuleForCausalLM def main(): initialize_megatron(args_defaults={&#39;no_load_rng&#39;: True, &#39;no_load_optim&#39;: True}) args = get_args() model = MegatronModuleForCausalLM.from_pretrained( model_provider=model_provider, pretrained_model_name_or_path=args.load ) task_factory(args, model) if __name__ == &#34;__main__&#34;: main() 可推理流程的关键步骤包括：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 #!/bin/bash export CUDA_DEVICE_MAX_CONNECTIONS=1 # please fill these path configurations CHECKPOINT=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp1_pp1/&#34; TOKENIZER_PATH=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B-Instruct/&#34; # Change for multinode config MASTER_ADDR=localhost MASTER_PORT=6000 NNODES=1 NODE_RANK=0 NPUS_PER_NODE=1 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES)) TP=1 PP=1 SEQ_LENGTH=32768 ... torchrun $DISTRIBUTED_ARGS inference.py \ --use-mcore-models \ ... 可以看到对于 7B 模型，采用单卡就可以进行推理。启动方式依然为 torchrun，启动脚本为 inference.py。
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-11-14 00:00:00 +0000 UTC'>November 14, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>

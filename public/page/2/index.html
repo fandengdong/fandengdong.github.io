@@ -184,9 +184,7 @@
     <p>本文记录了 mindspeed-llm 框架提供的推理方法，以 Qwen2.5-7B 模型为例说明推理过程。
 准备工作 推理模型的权重需要转换为 mcore 格式，方法与微调时相同，参考这里
 开启推理测试 准备好模型权重后，可以直接使用 mindspeed-llm 提供的推理脚本进行推理测试，脚本位于examples/mcore/qwen25/generate_qwen25_7b_ptd.sh
-#!/bin/bash export CUDA_DEVICE_MAX_CONNECTIONS=1 # please fill these path configurations CHECKPOINT=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp1_pp1/&#34; TOKENIZER_PATH=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B-Instruct/&#34; # Change for multinode config MASTER_ADDR=localhost MASTER_PORT=6000 NNODES=1 NODE_RANK=0 NPUS_PER_NODE=1 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES)) TP=1 PP=1 SEQ_LENGTH=32768 ... torchrun $DISTRIBUTED_ARGS inference.py \ --use-mcore-models \ ... 可以看到对于 7B 模型，采用单卡就可以进行推理。启动方式依然为 torchrun，启动脚本为 inference.py。
-推理流程 查看inference.py文件：
-from megatron.training.initialize import initialize_megatron from mindspeed_llm.tasks.inference.module import GPTModelInfer, MegatronModuleForCausalLM def main(): initialize_megatron(args_defaults={&#39;no_load_rng&#39;: True, &#39;no_load_optim&#39;: True}) args = get_args() model = MegatronModuleForCausalLM.from_pretrained( model_provider=model_provider, pretrained_model_name_or_path=args.load ) task_factory(args, model) if __name__ == &#34;__main__&#34;: main() 可推理流程的关键步骤包括：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 #!/bin/bash export CUDA_DEVICE_MAX_CONNECTIONS=1 # please fill these path configurations CHECKPOINT=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B/mcore_tp1_pp1/&#34; TOKENIZER_PATH=&#34;/home/fdd/workspace/models/Qwen/Qwen2.5-7B-Instruct/&#34; # Change for multinode config MASTER_ADDR=localhost MASTER_PORT=6000 NNODES=1 NODE_RANK=0 NPUS_PER_NODE=1 WORLD_SIZE=$(($NPUS_PER_NODE*$NNODES)) TP=1 PP=1 SEQ_LENGTH=32768 ... torchrun $DISTRIBUTED_ARGS inference.py \ --use-mcore-models \ ... 可以看到对于 7B 模型，采用单卡就可以进行推理。启动方式依然为 torchrun，启动脚本为 inference.py。
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-11-14 00:00:00 +0000 UTC'>November 14, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
@@ -218,8 +216,7 @@ from megatron.training.initialize import initialize_megatron from mindspeed_llm.
     <p>本文通过一个完整示例代码演示如何使用 Mindspeed 框架进行分布式大模型训练。
 环境版本信息
 Mindspeed commit ID: 89f4632d Megatron 分支: core_v0.12.1 CANN: 8.2.RC1 PyTorch: 2.5.1 1. 初始化分布式并行环境 Mindspeed 基于 Megatron 构建，支持张量并行（TP）和流水线并行（PP）。在训练前，必须正确初始化分布式环境：
-import os import torch import mindspeed.megatron_adaptor # 关键：确保 Mindspeed 与 Megatron API 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): # 清理已有状态（防止重复初始化） parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式设置 rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0)) world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # 初始化 Megatron 并行状态 parallel_state.initialize_model_parallel( tensor_model_parallel_size=tensor_model_parallel_size, pipeline_model_parallel_size=pipeline_model_parallel_size ) 关键点说明： 必须显式导入 mindspeed.megatron_adaptor，以启用兼容层。 除了标准的 torch.distributed.init_process_group，还需调用 parallel_state.initialize_model_parallel 来激活 TP/PP 支持。 需根据实际训练配置传入 tensor_model_parallel_size 和 pipeline_model_parallel_size。
-Mindspeed 模型初始化 Mindspeed 使用 Megatron Core 的模块化设计构建模型。以下是一个最小 GPT 模型的构建示例：
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 import os import torch import mindspeed.megatron_adaptor # 关键：确保 Mindspeed 与 Megatron API 兼容 from megatron.core import parallel_state def initialize_distributed(tensor_model_parallel_size=1, pipeline_model_parallel_size=1): # 清理已有状态（防止重复初始化） parallel_state.destroy_model_parallel() # 标准 PyTorch 分布式设置 rank = int(os.environ.get(&#39;LOCAL_RANK&#39;, 0)) world_size = int(os.environ.get(&#34;WORLD_SIZE&#34;, 1)) torch.cuda.set_device(rank) torch.distributed.init_process_group(world_size=world_size, rank=rank) # 初始化 Megatron 并行状态 parallel_state.initialize_model_parallel( tensor_model_parallel_size=tensor_model_parallel_size, pipeline_model_parallel_size=pipeline_model_parallel_size ) 关键点说明： 必须显式导入 mindspeed.megatron_adaptor，以启用兼容层。 除了标准的 torch.distributed.init_process_group，还需调用 parallel_state.initialize_model_parallel 来激活 TP/PP 支持。 需根据实际训练配置传入 tensor_model_parallel_size 和 pipeline_model_parallel_size。
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-11-11 00:00:00 +0000 UTC'>November 11, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
@@ -234,7 +231,7 @@ Mindspeed 模型初始化 Mindspeed 使用 Megatron Core 的模块化设计构�
   <div class="entry-content">
     <p>MindSpeed的核心目的是高效地适配和加速基于Megatron-LM的大模型，使其能够在华为昇腾AI硬件上进行训练和推理。其主要功能包括：
 框架兼容性：将原生Megatron-LM代码适配到昇腾NPU架构，确保功能正确性。 性能优化：通过算子融合、内存优化和通信加速等技术提升训练和推理效率。 多级加速：提供可配置的优化层级（如基础兼容性、亲和性增强、全面加速），用户可根据需求启用。 生态集成：与CANN和MindSpore等昇腾软件栈深度集成，实现无缝的软硬件协同优化。 简而言之，MindSpeed使基于Megatron的大模型能够在昇腾设备上正确运行、快速运行和可靠运行。
-一行代码适配Megatron代码 import torch import mindspeed.megatron_adaptor # 新增代码行 加速特性层级说明 MindSpeed Core加速特性分为三个层级。用户可以通过在启动脚本中设置--optimization-level {level}参数来根据实际需求选择要启用的优化级别。该参数支持以下配置：
+一行代码适配Megatron代码 1 2 import torch import mindspeed.megatron_adaptor # 新增代码行 加速特性层级说明 MindSpeed Core加速特性分为三个层级。用户可以通过在启动脚本中设置--optimization-level {level}参数来根据实际需求选择要启用的优化级别。该参数支持以下配置：
 等级 等级名称 描述 0 基础功能兼容性 提供Megatron-LM框架与NPU的基础功能兼容性。 1 亲和性增强 🔥 在L0基础上，启用部分融合算子和昇腾友好的计算重写。 2 加速特性增强 🔥🔥 默认值。在L0和L1基础上启用更丰富的加速特性，加速特性通常通过特定参数启用。详情请参阅&#34;特性介绍&#34;部分。 MindSpeed Core生态系统 在MindSpeed Core加速库的基础上，还提供了以下专业库：
 大语言模型库: MindSpeed LLM 多模态模型库: MindSpeed MM 强化学习加速库: MindSpeed RL </p>
   </div>
@@ -258,6 +255,22 @@ Mindspeed 模型初始化 Mindspeed 使用 Megatron Core 的模块化设计构�
   </div>
   <footer class="entry-footer"><span title='2025-01-13 00:00:00 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
   <a class="entry-link" aria-label="post link to KV cache - 大模型高效推理的基石" href="http://localhost:1313/llm/architecture/kv-cache/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Mamba - A Transformer-like Architecture for Long Sequence Modeling
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>一、Mamba 的设计思想 背景：Transformer 的局限性 自注意力机制的时间复杂度为 $O(L^2)$（L 为序列长度），对长序列（如基因组、高分辨率音频、长文本）效率低。 线性注意力等近似方法牺牲了建模能力。 RNN / SSM（状态空间模型） 具有线性复杂度 $O(L)$，但传统 SSM（如 Linear Time-Invariant SSM, LTI-SSM）是时不变的，无法像 Transformer 那样根据输入内容动态调整行为。 Mamba 的核心创新 Selective State Space Model (SSM) —— 将 SSM 与输入相关（input-dependent），使其具备上下文感知能力，同时保持线性复杂度。
+关键点：
+选择性（Selectivity）：SSM 的参数（如 A, B, C）不再是固定或仅时间相关的，而是由当前输入 token 动态生成。 硬件感知设计：利用现代 GPU 的并行特性，通过“扫描（scan）&#43; 并行前缀”实现高效训练。 结构简单：没有 attention，只有 MLP &#43; SSM block。 二、Mamba 架构概览 Mamba Block 替代了 Transformer 中的 Attention &#43; MLP 子层：
+Input → LayerNorm → SSM (Selective SSM) → Residual Add → LayerNorm → MLP → Residual Add → Output 其中最核心的是 Selective SSM 模块。
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-01-13 00:00:00 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
+  <a class="entry-link" aria-label="post link to Mamba - A Transformer-like Architecture for Long Sequence Modeling" href="http://localhost:1313/llm/architecture/mamba/"></a>
 </article>
 
 <article class="post-entry"> 
@@ -305,7 +318,7 @@ $$ \mathbf{x}_{l&#43;1} = \mathcal{H}_l^{\text{res}} \mathbf{x}_l &#43; \mathcal
   <div class="entry-content">
     <p>Getting Started with vLLM Deployment Deploying large language models efficiently requires careful consideration of hardware resources and configuration parameters.
 Installation Installing vLLM is straightforward using pip:
-pip install vllm </p>
+1 pip install vllm </p>
   </div>
   <footer class="entry-footer"><span title='2024-01-20 00:00:00 +0000 UTC'>January 20, 2024</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
   <a class="entry-link" aria-label="post link to Deploying vLLM in Production" href="http://localhost:1313/llm/vllm/deployment/"></a>
