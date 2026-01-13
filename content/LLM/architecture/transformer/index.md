@@ -10,7 +10,7 @@ math: true
 
 就在这个关键时刻，Google的大神们在2017年扔出了一个"核弹级"的解决方案——《Attention Is All You Need》。这篇论文彻底颠覆了人们对序列建模的认知，提出了完全基于注意力机制的Transformer架构。
 
-![Transformer Architecture](transformer.png)
+<img src="transformer.png" alt="transformer" style="width:60%;height:auto;">
 
 ## 翻译任务：Transformer的试验场
 
