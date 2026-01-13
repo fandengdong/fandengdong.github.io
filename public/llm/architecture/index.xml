@@ -33,7 +33,7 @@
 &lt;h2 id=&#34;二基本原理&#34;&gt;二、基本原理&lt;/h2&gt;
 &lt;p&gt;MLA 的核心思想是：&lt;/p&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;不显式存储每个 token 的 K 和 V，而是存储一个紧凑的“潜在向量” ( z_t \in \mathbb{R}^{d_z} )（( d_z \ll d_k, d_v )），在需要时通过轻量级可学习映射 ( f_K, f_V ) 动态重建 K 和 V。&lt;/strong&gt;&lt;/p&gt;</description>
+&lt;p&gt;&lt;strong&gt;不显式存储每个 token 的 K 和 V，而是存储一个紧凑的“潜在向量” $ z_t \in \mathbb{R}^{d_z} $（$ d_z \ll d_k, d_v $），在需要时通过轻量级可学习映射 $ f_K, f_V $ 动态重建 K 和 V。&lt;/strong&gt;&lt;/p&gt;</description>
     </item>
     <item>
       <title>SwiGLU激活函数解析</title>
@@ -311,7 +311,7 @@ $$&lt;/p&gt;
       <description>&lt;h2 id=&#34;transformer的诞生背景&#34;&gt;Transformer的诞生背景&lt;/h2&gt;
 &lt;p&gt;在深度学习的世界里，序列建模一直是个老大难问题。传统的循环神经网络(RNN)虽然能够处理序列数据，但在处理长序列时存在梯度消失和计算效率低下的问题。而卷积神经网络(CNN)虽然并行化程度高，但在捕捉长距离依赖关系方面力不从心。&lt;/p&gt;
 &lt;p&gt;就在这个关键时刻，Google的大神们在2017年扔出了一个&amp;quot;核弹级&amp;quot;的解决方案——《Attention Is All You Need》。这篇论文彻底颠覆了人们对序列建模的认知，提出了完全基于注意力机制的Transformer架构。&lt;/p&gt;
-&lt;p&gt;&lt;img alt=&#34;Transformer Architecture&#34; loading=&#34;lazy&#34; src=&#34;http://localhost:1313/llm/architecture/transformer/transformer.png&#34;&gt;&lt;/p&gt;
+&lt;img src=&#34;transformer.png&#34; alt=&#34;transformer&#34; style=&#34;width:60%;height:auto;&#34;&gt;
 &lt;h2 id=&#34;翻译任务transformer的试验场&#34;&gt;翻译任务：Transformer的试验场&lt;/h2&gt;
 &lt;p&gt;Transformer最初是为了机器翻译任务而设计的。想象一下，你要把一句中文翻译成英文：&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;中文输入&lt;/strong&gt;: &amp;ldquo;我喜欢学习人工智能&amp;rdquo;&lt;/p&gt;
@@ -356,7 +356,9 @@ $$&lt;/p&gt;
 &lt;li&gt;多头注意力机制(Multi-Head Attention)&lt;/li&gt;
 &lt;li&gt;位置全连接前馈网络(Position-wise Feed-Forward Networks)&lt;/li&gt;
 &lt;/ol&gt;
-&lt;p&gt;其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&amp;quot;偷看&amp;quot;未来的信息。&lt;/p&gt;</description>
+&lt;p&gt;其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&amp;quot;偷看&amp;quot;未来的信息。&lt;/p&gt;
+&lt;h2 id=&#34;基本组件详解&#34;&gt;基本组件详解&lt;/h2&gt;
+&lt;p&gt;现在让我们深入了解一下Transformer内部的各个组件：&lt;/p&gt;</description>
     </item>
     <item>
       <title>综述 - Transformer架构的演进</title>
@@ -410,6 +412,101 @@ $$&lt;/p&gt;
 &lt;p&gt;$$
 h_t = \overline{A}h_{t-1} + \overline{B}x_t,\quad y_t = Ch_t
 $$&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>KV cache - 大模型高效推理的基石</title>
+      <link>http://localhost:1313/llm/architecture/kv-cache/</link>
+      <pubDate>Mon, 13 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/kv-cache/</guid>
+      <description>&lt;p&gt;KV Cache（Key-Value Cache）是大语言模型（LLM, Large Language Model）推理过程中用于&lt;strong&gt;加速自回归生成&lt;/strong&gt;的一项关键技术。它通过缓存先前 token 的 Key 和 Value 向量，避免在生成新 token 时重复计算已处理上下文的注意力信息，从而显著提升推理效率。&lt;/p&gt;
+&lt;h2 id=&#34;一为什么需要-kv-cache&#34;&gt;一、为什么需要 KV Cache？&lt;/h2&gt;
+&lt;h3 id=&#34;1-自回归生成的本质&#34;&gt;1. 自回归生成的本质&lt;/h3&gt;
+&lt;p&gt;大语言模型通常以&lt;strong&gt;自回归方式&lt;/strong&gt;生成文本：每次只预测一个 token，然后将该 token 拼接到输入序列末尾，再预测下一个 token。例如：&lt;/p&gt;
+&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;输入: &amp;#34;今天天气&amp;#34;
+第1步输出: &amp;#34;真&amp;#34;
+输入变为: &amp;#34;今天天气真&amp;#34;
+第2步输出: &amp;#34;好&amp;#34;
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&#34;2-注意力机制的重复计算问题&#34;&gt;2. 注意力机制的重复计算问题&lt;/h3&gt;
+&lt;p&gt;Transformer 使用 &lt;strong&gt;自注意力机制（Self-Attention）&lt;/strong&gt;，对长度为 $n$ 的序列，每个 token 都要与其他所有 token 计算注意力权重。&lt;/p&gt;
+&lt;p&gt;假设当前已生成 $t$ 个 token，现在要生成第 $t+1$ 个 token。若每次都重新计算整个长度为 $t+1$ 的序列的 Q、K、V，那么：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;第1步：计算1个token → 1次QKV&lt;/li&gt;
+&lt;li&gt;第2步：计算2个token → 2次QKV（但前1个其实已经算过）&lt;/li&gt;
+&lt;li&gt;&amp;hellip;&lt;/li&gt;
+&lt;li&gt;第$t$步：计算$t$个token → 前$t-1$个重复计算！&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这导致 &lt;strong&gt;时间复杂度为 $O(n^2)$&lt;/strong&gt;，且大量重复计算。&lt;/p&gt;
+&lt;h3 id=&#34;3-kv-cache-的提出&#34;&gt;3. KV Cache 的提出&lt;/h3&gt;
+&lt;p&gt;为解决此问题，研究者提出：&lt;strong&gt;在生成过程中缓存每个 token 对应的 K（Key）和 V（Value）向量&lt;/strong&gt;。因为：&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>GDN - Qwen3-Next中引入的一种状态空间模型变体</title>
+      <link>http://localhost:1313/llm/architecture/gdn/</link>
+      <pubDate>Thu, 09 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/gdn/</guid>
+      <description>&lt;p&gt;Ref: &lt;a href=&#34;https://zhuanlan.zhihu.com/p/1970797248171475540&#34;&gt;知乎&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;Gated DeltaNet 是 Qwen3-Next（通义千问 3 的下一代模型）中引入的一种&lt;strong&gt;状态空间模型（State Space Model, SSM）变体&lt;/strong&gt;，用于增强 Transformer 架构在长序列建模中的能力。它融合了 &lt;strong&gt;Delta Rule（增量学习规则）&lt;/strong&gt;、&lt;strong&gt;门控机制（Gating）&lt;/strong&gt; 和 &lt;strong&gt;状态空间建模思想&lt;/strong&gt;，旨在解决传统注意力机制在处理超长上下文时的计算和内存瓶颈。&lt;/p&gt;
+&lt;p&gt;下面我们将从&lt;strong&gt;由来、演变、集成方式、数学形式&lt;/strong&gt;到 &lt;strong&gt;PyTorch 实现&lt;/strong&gt; 一步步解析 Gated DeltaNet。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一由来与动机&#34;&gt;一、由来与动机&lt;/h2&gt;
+&lt;h3 id=&#34;11-背景transformer-的局限&#34;&gt;1.1 背景：Transformer 的局限&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;标准 Transformer 使用自注意力机制，其复杂度为 $O(L^2)$，其中 $L$ 是序列长度。&lt;/li&gt;
+&lt;li&gt;对于超长上下文（如 100K+ tokens），注意力机制变得不可扩展。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;12-状态空间模型ssm的兴起&#34;&gt;1.2 状态空间模型（SSM）的兴起&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;SSM（如 S4、S5、Mamba）提供了一种线性复杂度 $O(L)$ 的序列建模范式。&lt;/li&gt;
+&lt;li&gt;其核心是维护一个&lt;strong&gt;隐状态&lt;/strong&gt; $h_t$，通过递推更新：
+$$
+h_t = \bar{A} h_{t-1} + \bar{B} x_t
+$$
+$$
+y_t = C h_t
+$$
+其中 $\bar{A}, \bar{B}$ 是离散化后的系统矩阵。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;13-delta-rule-与-hebbian-学习&#34;&gt;1.3 Delta Rule 与 Hebbian 学习&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Delta Rule 是一种增量学习规则，形式为：
+$$
+\Delta W \propto (y_{\text{target}} - y) x^\top
+$$&lt;/li&gt;
+&lt;li&gt;在神经记忆模型中，Delta Rule 可被解释为&lt;strong&gt;快速联想记忆更新&lt;/strong&gt;：新输入 $x_t$ 与当前输出误差共同驱动权重更新。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;14-gated-deltanet-的提出&#34;&gt;1.4 Gated DeltaNet 的提出&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Gated DeltaNet 将 Delta Rule 的思想嵌入到 SSM 框架中，形成一种&lt;strong&gt;可学习的、门控控制的记忆更新机制&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;它不是直接更新权重，而是维护一个&lt;strong&gt;键值记忆矩阵&lt;/strong&gt; $M_t$，并通过门控机制进行增量更新。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二gated-deltanet-的数学形式&#34;&gt;二、Gated DeltaNet 的数学形式&lt;/h2&gt;
+&lt;p&gt;Gated DeltaNet 的核心是维护一个&lt;strong&gt;外部记忆矩阵&lt;/strong&gt; $M_t \in \mathbb{R}^{d_k \times d_v}$，并在每个时间步通过输入 $x_t$ 更新它。&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>mHC - Manifold-Constrained Hyper-Connections 流形约束超链接</title>
+      <link>http://localhost:1313/llm/architecture/mhc/</link>
+      <pubDate>Wed, 08 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/llm/architecture/mhc/</guid>
+      <description>&lt;p&gt;Ref: &lt;a href=&#34;https://arxiv.org/abs/2512.24880v1&#34;&gt;mHC: Manifold-Constrained Hyper-Connections &lt;/a&gt;&lt;/p&gt;
+&lt;img src=&#34;mHC.jpg&#34; alt=&#34;mHC&#34; style=&#34;width:80%;height:auto;&#34;&gt;
+&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;自从ResNets的提出，深度神经网络架构经历了快速的演进。一个常规的ResNet层结果如上面图(a)所示，其数学表达式描述为：&lt;/p&gt;
+&lt;p&gt;$$
+\mathbf{x}_{l+1} = \mathbf{x}_l + \mathcal{F}(\mathbf{x}_l, W_l)             \tag{1}
+$$&lt;/p&gt;
+&lt;p&gt;其中$\mathbf{x}&lt;em&gt;l$和$\mathbf{x}&lt;/em&gt;{l+1}$表示输入和输出向量，是一个$C$维度的向量。$\mathcal{F}$表示残差函数，$W_l$表示权重矩阵。尽管残差函数F在过去十年中已发展出卷积、注意力机制和前馈网络等多种操作，但残差连接的范式仍保持其原始形式。随着Transformer架构的发展，该范式目前已确立为大型语言模型（LLMs）的基本设计元素。&lt;/p&gt;
+&lt;p&gt;这一成功主要归功于残差连接的简洁形式。更重要的是，早期研究揭示了残差连接的恒等映射特性在大规模训练中保持稳定性和效率。通过递归扩展残差连接跨越多层，等式（1）得出：&lt;/p&gt;
+&lt;p&gt;$$
+\mathbf{x}_{L} = \mathbf{x}&lt;em&gt;l + \sum&lt;/em&gt;{i=l}^{L-1} \mathcal{F}(\mathbf{x}_l, W_l)             \tag{2}
+$$&lt;/p&gt;
+&lt;p&gt;其中$L$和$l$分别对应较深和较浅的层。恒等映射项指的是组件$x_l$本身，强调了来自较浅层的信号未经任何修改直接映射到较深层的特性。&lt;/p&gt;
+&lt;p&gt;近期，以超连接（Hyper-Connections，HC）（Zhu 等人，2024）为代表的研究为残差连接引入了新维度，并通过实证验证了其性能潜力。HC的单层架构如图1(b)所示。通过扩展残差流宽度并增强连接复杂度，HC在不改变单个单元浮点运算（FLOPs）计算开销的前提下，显著提升了拓扑复杂度。形式化地，HC中的单层传播定义为：&lt;/p&gt;
+&lt;p&gt;$$
+\mathbf{x}_{l+1} = \mathcal{H}_l^{\text{res}} \mathbf{x}_l + \mathcal{H}_l^{\text{post}}{}^\top \mathcal{F}(\mathcal{H}_l^{\text{pre}}   \mathbf{x}_l, W_l)    \tag{3}
+$$&lt;/p&gt;
+&lt;p&gt;其中，$\mathbf{x}&lt;em&gt;l$ 和 $\mathbf{x}&lt;/em&gt;{l+1}$ 分别表示第 $l$ 层的输入和输出。与公式 (1) 中的表述不同，$\mathbf{x}&lt;em&gt;l$ 和 $\mathbf{x}&lt;/em&gt;{l+1}$ 的特征维度从 $C$ 扩展到了 $n \times C$，其中 $n$ 是扩展倍率（expansion rate）。项 $\mathcal{H}_l^{\text{res}} \in \mathbb{R}^{n \times n}$ 表示一个可学习的映射，用于在残差流（residual stream）内部混合特征。同样作为可学习映射，$\mathcal{H}_l^{\text{pre}} \in \mathbb{R}^{1 \times n}$ 将来自 $nC$ 维流中的特征聚合为一个 $C$ 维的层输入；反之，$\mathcal{H}_l^{\text{post}} \in \mathbb{R}^{1 \times n}$ 将层的输出重新映射回原始流中。&lt;/p&gt;</description>
     </item>
   </channel>
 </rss>

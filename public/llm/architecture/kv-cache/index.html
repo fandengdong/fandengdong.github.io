@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>KV cache - 大模型高效推理的基石 | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="KV Cache（Key-Value Cache）是大语言模型（LLM, Large Language Model）推理过程中用于加速自回归生成的一项关键技术。它通过缓存先前 token 的 Key 和 Value 向量，避免在生成新 token 时重复计算已处理上下文的注意力信息，从而显著提升推理效率。
+一、为什么需要 KV Cache？
+1. 自回归生成的本质
+大语言模型通常以自回归方式生成文本：每次只预测一个 token，然后将该 token 拼接到输入序列末尾，再预测下一个 token。例如：
+输入: &#34;今天天气&#34;
+第1步输出: &#34;真&#34;
+输入变为: &#34;今天天气真&#34;
+第2步输出: &#34;好&#34;
+...
+2. 注意力机制的重复计算问题
+Transformer 使用 自注意力机制（Self-Attention），对长度为 $n$ 的序列，每个 token 都要与其他所有 token 计算注意力权重。
+假设当前已生成 $t$ 个 token，现在要生成第 $t&#43;1$ 个 token。若每次都重新计算整个长度为 $t&#43;1$ 的序列的 Q、K、V，那么：
+
+第1步：计算1个token → 1次QKV
+第2步：计算2个token → 2次QKV（但前1个其实已经算过）
+&hellip;
+第$t$步：计算$t$个token → 前$t-1$个重复计算！
+
+这导致 时间复杂度为 $O(n^2)$，且大量重复计算。
+3. KV Cache 的提出
+为解决此问题，研究者提出：在生成过程中缓存每个 token 对应的 K（Key）和 V（Value）向量。因为：">
+<meta name="author" content="fandengdong">
+<link rel="canonical" href="http://localhost:1313/llm/architecture/kv-cache/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/architecture/kv-cache/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><meta property="og:url" content="http://localhost:1313/llm/architecture/kv-cache/">
+  <meta property="og:site_name" content="My work notes">
+  <meta property="og:title" content="KV cache - 大模型高效推理的基石">
+  <meta property="og:description" content="KV Cache（Key-Value Cache）是大语言模型（LLM, Large Language Model）推理过程中用于加速自回归生成的一项关键技术。它通过缓存先前 token 的 Key 和 Value 向量，避免在生成新 token 时重复计算已处理上下文的注意力信息，从而显著提升推理效率。
+一、为什么需要 KV Cache？ 1. 自回归生成的本质 大语言模型通常以自回归方式生成文本：每次只预测一个 token，然后将该 token 拼接到输入序列末尾，再预测下一个 token。例如：
+输入: &#34;今天天气&#34; 第1步输出: &#34;真&#34; 输入变为: &#34;今天天气真&#34; 第2步输出: &#34;好&#34; ... 2. 注意力机制的重复计算问题 Transformer 使用 自注意力机制（Self-Attention），对长度为 $n$ 的序列，每个 token 都要与其他所有 token 计算注意力权重。
+假设当前已生成 $t$ 个 token，现在要生成第 $t&#43;1$ 个 token。若每次都重新计算整个长度为 $t&#43;1$ 的序列的 Q、K、V，那么：
+第1步：计算1个token → 1次QKV 第2步：计算2个token → 2次QKV（但前1个其实已经算过） … 第$t$步：计算$t$个token → 前$t-1$个重复计算！ 这导致 时间复杂度为 $O(n^2)$，且大量重复计算。
+3. KV Cache 的提出 为解决此问题，研究者提出：在生成过程中缓存每个 token 对应的 K（Key）和 V（Value）向量。因为：">
+  <meta property="og:locale" content="zh-CN">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2025-01-13T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-01-13T00:00:00+00:00">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="KV cache - 大模型高效推理的基石">
+<meta name="twitter:description" content="KV Cache（Key-Value Cache）是大语言模型（LLM, Large Language Model）推理过程中用于加速自回归生成的一项关键技术。它通过缓存先前 token 的 Key 和 Value 向量，避免在生成新 token 时重复计算已处理上下文的注意力信息，从而显著提升推理效率。
+一、为什么需要 KV Cache？
+1. 自回归生成的本质
+大语言模型通常以自回归方式生成文本：每次只预测一个 token，然后将该 token 拼接到输入序列末尾，再预测下一个 token。例如：
+输入: &#34;今天天气&#34;
+第1步输出: &#34;真&#34;
+输入变为: &#34;今天天气真&#34;
+第2步输出: &#34;好&#34;
+...
+2. 注意力机制的重复计算问题
+Transformer 使用 自注意力机制（Self-Attention），对长度为 $n$ 的序列，每个 token 都要与其他所有 token 计算注意力权重。
+假设当前已生成 $t$ 个 token，现在要生成第 $t&#43;1$ 个 token。若每次都重新计算整个长度为 $t&#43;1$ 的序列的 Q、K、V，那么：
+
+第1步：计算1个token → 1次QKV
+第2步：计算2个token → 2次QKV（但前1个其实已经算过）
+&hellip;
+第$t$步：计算$t$个token → 前$t-1$个重复计算！
+
+这导致 时间复杂度为 $O(n^2)$，且大量重复计算。
+3. KV Cache 的提出
+为解决此问题，研究者提出：在生成过程中缓存每个 token 对应的 K（Key）和 V（Value）向量。因为：">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "LLM architecture",
+      "item": "http://localhost:1313/llm/architecture/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "KV cache - 大模型高效推理的基石",
+      "item": "http://localhost:1313/llm/architecture/kv-cache/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "KV cache - 大模型高效推理的基石",
+  "name": "KV cache - 大模型高效推理的基石",
+  "description": "KV Cache（Key-Value Cache）是大语言模型（LLM, Large Language Model）推理过程中用于加速自回归生成的一项关键技术。它通过缓存先前 token 的 Key 和 Value 向量，避免在生成新 token 时重复计算已处理上下文的注意力信息，从而显著提升推理效率。\n一、为什么需要 KV Cache？ 1. 自回归生成的本质 大语言模型通常以自回归方式生成文本：每次只预测一个 token，然后将该 token 拼接到输入序列末尾，再预测下一个 token。例如：\n输入: \u0026#34;今天天气\u0026#34; 第1步输出: \u0026#34;真\u0026#34; 输入变为: \u0026#34;今天天气真\u0026#34; 第2步输出: \u0026#34;好\u0026#34; ... 2. 注意力机制的重复计算问题 Transformer 使用 自注意力机制（Self-Attention），对长度为 $n$ 的序列，每个 token 都要与其他所有 token 计算注意力权重。\n假设当前已生成 $t$ 个 token，现在要生成第 $t+1$ 个 token。若每次都重新计算整个长度为 $t+1$ 的序列的 Q、K、V，那么：\n第1步：计算1个token → 1次QKV 第2步：计算2个token → 2次QKV（但前1个其实已经算过） \u0026hellip; 第$t$步：计算$t$个token → 前$t-1$个重复计算！ 这导致 时间复杂度为 $O(n^2)$，且大量重复计算。\n3. KV Cache 的提出 为解决此问题，研究者提出：在生成过程中缓存每个 token 对应的 K（Key）和 V（Value）向量。因为：\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "KV Cache（Key-Value Cache）是大语言模型（LLM, Large Language Model）推理过程中用于加速自回归生成的一项关键技术。它通过缓存先前 token 的 Key 和 Value 向量，避免在生成新 token 时重复计算已处理上下文的注意力信息，从而显著提升推理效率。\n一、为什么需要 KV Cache？ 1. 自回归生成的本质 大语言模型通常以自回归方式生成文本：每次只预测一个 token，然后将该 token 拼接到输入序列末尾，再预测下一个 token。例如：\n输入: \"今天天气\" 第1步输出: \"真\" 输入变为: \"今天天气真\" 第2步输出: \"好\" ... 2. 注意力机制的重复计算问题 Transformer 使用 自注意力机制（Self-Attention），对长度为 $n$ 的序列，每个 token 都要与其他所有 token 计算注意力权重。\n假设当前已生成 $t$ 个 token，现在要生成第 $t+1$ 个 token。若每次都重新计算整个长度为 $t+1$ 的序列的 Q、K、V，那么：\n第1步：计算1个token → 1次QKV 第2步：计算2个token → 2次QKV（但前1个其实已经算过） … 第$t$步：计算$t$个token → 前$t-1$个重复计算！ 这导致 时间复杂度为 $O(n^2)$，且大量重复计算。\n3. KV Cache 的提出 为解决此问题，研究者提出：在生成过程中缓存每个 token 对应的 K（Key）和 V（Value）向量。因为：\n在自回归生成中，历史 token 不会改变； Attention 公式中，当前 token 的 Q 只需与所有历史 K、V 计算即可； Q 是当前 token 的表示，必须实时计算；但 K、V 可以提前缓存。 于是，在每一步只需：\n计算当前 token 的 Q； 将历史缓存的 K、V 与当前 K、V 拼接； 执行一次 attention。 这样，每步计算量恒定（$O(1)$ per step），总复杂度从 $O(n^2)$ 降为 $O(n)$。\n✅ KV Cache 的核心思想：用空间换时间，避免重复计算 K、V。\n二、技术原理详解 1. 标准 Self-Attention 公式回顾 对于输入序列 $X \\in \\mathbb{R}^{n \\times d}$：\n$$ Q = X W_Q,\\quad K = X W_K,\\quad V = X W_V $$ $$ \\text{Attention}(Q, K, V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V $$\n2. 自回归生成中的 KV Cache 应用 设当前已处理 token 数为 $t$，缓存了：\n$K_{\\text{cache}} \\in \\mathbb{R}^{t \\times d_k}$ $V_{\\text{cache}} \\in \\mathbb{R}^{t \\times d_v}$ 当输入新 token $x_{t+1}$（或初始 prompt 的下一个 token）：\n计算其 Q、K、V： $$ q_{t+1} = x_{t+1} W_Q,\\quad k_{t+1} = x_{t+1} W_K,\\quad v_{t+1} = x_{t+1} W_V $$ 更新缓存： $$ K_{\\text{new}} = [K_{\\text{cache}}; k_{t+1}],\\quad V_{\\text{new}} = [V_{\\text{cache}}; v_{t+1}] $$ 计算 attention： $$ \\text{attn} = \\text{softmax}\\left(\\frac{q_{t+1} K_{\\text{new}}^T}{\\sqrt{d_k}}\\right) V_{\\text{new}} $$ 注意：Q 只需当前 token 的（因为是 decoder-only 架构，如 GPT），而 K、V 需要全部历史。\n注意：在自回归的推理过程中，网络中流通的tensor的shape为：[batch_size, 1, hidden_size]，而不是训练当中的[batch_size, seq_len, hidden_size]。\n3. 多头注意力中的 KV Cache 每个 attention head 都有自己的 $W_K, W_V$，因此 KV Cache 通常是 shape: $(batch_size, num_heads, seq_len, head_dim)$。\n在实现中，常按 head 维度组织缓存。\n4. 工程优化 内存管理：缓存随序列增长而增长，需注意显存限制。 PagedAttention（vLLM）：将 KV Cache 分页存储，提高内存利用率。 量化 KV Cache：用 int8/float16 存储 K、V，减少显存占用。 滑动窗口注意力：只缓存最近 $N$ 个 token 的 KV，适用于长上下文。 三、Python 代码 Demo（简化版） 下面是一个 不依赖深度学习框架 的纯 NumPy 实现，演示 KV Cache 如何工作。\nimport numpy as np # 设置随机种子以便复现 np.random.seed(42) class SimpleKVCacheDemo: def __init__(self, d_model=64, d_k=32, d_v=32): self.d_model = d_model self.d_k = d_k self.d_v = d_v # 随机初始化权重（模拟训练好的模型） self.W_Q = np.random.randn(d_model, d_k) self.W_K = np.random.randn(d_model, d_k) self.W_V = np.random.randn(d_model, d_v) self.W_O = np.random.randn(d_v, d_model) # 输出投影（可选） # 初始化 KV 缓存 self.K_cache = None # shape: (seq_len, d_k) self.V_cache = None # shape: (seq_len, d_v) def clear_cache(self): self.K_cache = None self.V_cache = None def forward_step(self, x): \"\"\" x: np.array of shape (d_model,) — 当前输入 token 的 embedding 返回输出表示，并更新 KV cache 正常的前向输入是[bs, seq_len, d_model],这里考虑bs=1的情况，在推理过程中，每次输入为刚刚生成的最新的token，所以说当前输入的token维度为：[1, d_model] \"\"\" x = x.reshape(1, -1) # (1, d_model) # 计算当前 token 的 Q, K, V Q = x @ self.W_Q # (1, d_k) K = x @ self.W_K # (1, d_k) V = x @ self.W_V # (1, d_v) if self.K_cache is None: # 第一个 token self.K_cache = K self.V_cache = V attn_weights = np.array([[1.0]]) # softmax([0]) = [1] else: # 拼接缓存 K_full = np.vstack([self.K_cache, K]) # (seq_len+1, d_k) V_full = np.vstack([self.V_cache, V]) # (seq_len+1, d_v) # 计算 attention scores: Q @ K_full^T scores = Q @ K_full.T / np.sqrt(self.d_k) # (1, seq_len+1) attn_weights = np.exp(scores - np.max(scores)) # numerical stability attn_weights /= np.sum(attn_weights, axis=-1, keepdims=True) # 更新缓存 self.K_cache = K_full self.V_cache = V_full # 加权求和 output = attn_weights @ V_full # (1, d_v) output = output @ self.W_O # (1, d_model) # 在推理过程中，每个attention的维度就是(1, d_model)，不同于训练中，维度为(seq_len, d_model) return output.flatten() # ------------------ Demo ------------------ # 模拟 token embeddings（比如来自 embedding layer） embeddings = [ np.random.randn(64), np.random.randn(64), np.random.randn(64), np.random.randn(64) ] model = SimpleKVCacheDemo() print(\"=== Without KV Cache (naive recompute) ===\") # 这里我们不实现无缓存版本，但逻辑上每步都要重算全部 print(\"\\n=== With KV Cache ===\") model.clear_cache() for i, emb in enumerate(embeddings): out = model.forward_step(emb) print(f\"Step {i+1}: output norm = {np.linalg.norm(out):.4f}, \" f\"cache length = {model.K_cache.shape[0]}\") # 验证：如果重新输入相同序列，缓存会累积 print(\"\\nAdding one more token...\") out = model.forward_step(np.random.randn(64)) print(f\"Step 5: cache length = {model.K_cache.shape[0]}\") 输出示例： === With KV Cache === Step 1: output norm = 7.8921, cache length = 1 Step 2: output norm = 8.1023, cache length = 2 Step 3: output norm = 7.9542, cache length = 3 Step 4: output norm = 8.0124, cache length = 4 Adding one more token... Step 5: cache length = 5 💡 此 demo 虽简化（单头、无 batch、无 LayerNorm 等），但完整展示了 KV Cache 的核心机制：缓存 K、V，避免重复计算。\n四、实际应用中的 KV Cache（补充） 在真实 LLM 推理引擎中（如 HuggingFace Transformers、vLLM、TensorRT-LLM）：\nKV Cache 是默认启用的（past_key_values 参数）； 支持 batch 推理（不同序列长度需 padding 或使用 PagedAttention）； 可通过 use_cache=True 控制； 显存占用 ≈ $2 \\times \\text{num_layers} \\times \\text{num_heads} \\times \\text{seq_len} \\times \\text{head_dim} \\times \\text{bytes_per_param}$ 例如 HuggingFace 中使用：\nfrom transformers import AutoModelForCausalLM, AutoTokenizer model = AutoModelForCausalLM.from_pretrained(\"gpt2\", use_cache=True) tokenizer = AutoTokenizer.from_pretrained(\"gpt2\") inputs = tokenizer(\"Hello, how are\", return_tensors=\"pt\") outputs = model(**inputs) # 第一次：计算全部 KV # outputs.past_key_values 包含各层的 (K, V) 缓存 # 下一步生成： next_input = tokenizer(\" you\", return_tensors=\"pt\").input_ids[:, -1:] outputs2 = model( input_ids=next_input, past_key_values=outputs.past_key_values # 传入缓存！ ) 总结 项目 说明 动机 避免自回归生成中重复计算 K、V 核心 缓存历史 token 的 Key 和 Value 优势 推理速度提升，每步 $O(1)$ 计算 代价 额外显存（与序列长度线性增长） 扩展技术 PagedAttention、KV 量化、滑动窗口 KV Cache 是现代 LLM 高效推理的基石之一，理解它对优化部署、设计推理引擎至关重要。\n",
+  "wordCount" : "749",
+  "inLanguage": "en",
+  "datePublished": "2025-01-13T00:00:00Z",
+  "dateModified": "2025-01-13T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/architecture/kv-cache/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="My work notes (Alt + H)">My work notes</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
+                    <span>大语言模型 (LLM)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
+                    <span>欢迎来到我的工作空间</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+            delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+            ],
+            trust: true,
+            throwOnError: false
+        });
+        });
+    </script>
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      KV cache - 大模型高效推理的基石
+    </h1>
+    <div class="post-meta"><span title='2025-01-13 00:00:00 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>KV Cache（Key-Value Cache）是大语言模型（LLM, Large Language Model）推理过程中用于<strong>加速自回归生成</strong>的一项关键技术。它通过缓存先前 token 的 Key 和 Value 向量，避免在生成新 token 时重复计算已处理上下文的注意力信息，从而显著提升推理效率。</p>
+<h2 id="一为什么需要-kv-cache">一、为什么需要 KV Cache？<a hidden class="anchor" aria-hidden="true" href="#一为什么需要-kv-cache">#</a></h2>
+<h3 id="1-自回归生成的本质">1. 自回归生成的本质<a hidden class="anchor" aria-hidden="true" href="#1-自回归生成的本质">#</a></h3>
+<p>大语言模型通常以<strong>自回归方式</strong>生成文本：每次只预测一个 token，然后将该 token 拼接到输入序列末尾，再预测下一个 token。例如：</p>
+<pre tabindex="0"><code>输入: &#34;今天天气&#34;
+第1步输出: &#34;真&#34;
+输入变为: &#34;今天天气真&#34;
+第2步输出: &#34;好&#34;
+...
+</code></pre><h3 id="2-注意力机制的重复计算问题">2. 注意力机制的重复计算问题<a hidden class="anchor" aria-hidden="true" href="#2-注意力机制的重复计算问题">#</a></h3>
+<p>Transformer 使用 <strong>自注意力机制（Self-Attention）</strong>，对长度为 $n$ 的序列，每个 token 都要与其他所有 token 计算注意力权重。</p>
+<p>假设当前已生成 $t$ 个 token，现在要生成第 $t+1$ 个 token。若每次都重新计算整个长度为 $t+1$ 的序列的 Q、K、V，那么：</p>
+<ul>
+<li>第1步：计算1个token → 1次QKV</li>
+<li>第2步：计算2个token → 2次QKV（但前1个其实已经算过）</li>
+<li>&hellip;</li>
+<li>第$t$步：计算$t$个token → 前$t-1$个重复计算！</li>
+</ul>
+<p>这导致 <strong>时间复杂度为 $O(n^2)$</strong>，且大量重复计算。</p>
+<h3 id="3-kv-cache-的提出">3. KV Cache 的提出<a hidden class="anchor" aria-hidden="true" href="#3-kv-cache-的提出">#</a></h3>
+<p>为解决此问题，研究者提出：<strong>在生成过程中缓存每个 token 对应的 K（Key）和 V（Value）向量</strong>。因为：</p>
+<ul>
+<li>在自回归生成中，<strong>历史 token 不会改变</strong>；</li>
+<li>Attention 公式中，当前 token 的 Q 只需与所有历史 K、V 计算即可；</li>
+<li>Q 是当前 token 的表示，必须实时计算；但 K、V 可以提前缓存。</li>
+</ul>
+<p>于是，在每一步只需：</p>
+<ul>
+<li>计算当前 token 的 Q；</li>
+<li>将历史缓存的 K、V 与当前 K、V 拼接；</li>
+<li>执行一次 attention。</li>
+</ul>
+<p>这样，每步计算量恒定（$O(1)$ per step），总复杂度从 $O(n^2)$ 降为 $O(n)$。</p>
+<blockquote>
+<p>✅ <strong>KV Cache 的核心思想：用空间换时间，避免重复计算 K、V。</strong></p>
+</blockquote>
+<hr>
+<h2 id="二技术原理详解">二、技术原理详解<a hidden class="anchor" aria-hidden="true" href="#二技术原理详解">#</a></h2>
+<h3 id="1-标准-self-attention-公式回顾">1. 标准 Self-Attention 公式回顾<a hidden class="anchor" aria-hidden="true" href="#1-标准-self-attention-公式回顾">#</a></h3>
+<p>对于输入序列 $X \in \mathbb{R}^{n \times d}$：</p>
+<p>$$
+Q = X W_Q,\quad K = X W_K,\quad V = X W_V
+$$
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+$$</p>
+<h3 id="2-自回归生成中的-kv-cache-应用">2. 自回归生成中的 KV Cache 应用<a hidden class="anchor" aria-hidden="true" href="#2-自回归生成中的-kv-cache-应用">#</a></h3>
+<p>设当前已处理 token 数为 $t$，缓存了：</p>
+<ul>
+<li>$K_{\text{cache}} \in \mathbb{R}^{t \times d_k}$</li>
+<li>$V_{\text{cache}} \in \mathbb{R}^{t \times d_v}$</li>
+</ul>
+<p>当输入新 token $x_{t+1}$（或初始 prompt 的下一个 token）：</p>
+<ol>
+<li>计算其 Q、K、V：
+$$
+q_{t+1} = x_{t+1} W_Q,\quad k_{t+1} = x_{t+1} W_K,\quad v_{t+1} = x_{t+1} W_V
+$$</li>
+<li>更新缓存：
+$$
+K_{\text{new}} = [K_{\text{cache}}; k_{t+1}],\quad V_{\text{new}} = [V_{\text{cache}}; v_{t+1}]
+$$</li>
+<li>计算 attention：
+$$
+\text{attn} = \text{softmax}\left(\frac{q_{t+1} K_{\text{new}}^T}{\sqrt{d_k}}\right) V_{\text{new}}
+$$</li>
+</ol>
+<blockquote>
+<p>注意：Q 只需当前 token 的（因为是 decoder-only 架构，如 GPT），而 K、V 需要全部历史。</p>
+</blockquote>
+<blockquote>
+<p>注意：在自回归的推理过程中，网络中流通的tensor的shape为：[batch_size, 1, hidden_size]，而不是训练当中的[batch_size, seq_len, hidden_size]。</p>
+</blockquote>
+<h3 id="3-多头注意力中的-kv-cache">3. 多头注意力中的 KV Cache<a hidden class="anchor" aria-hidden="true" href="#3-多头注意力中的-kv-cache">#</a></h3>
+<p>每个 attention head 都有自己的 $W_K, W_V$，因此 KV Cache 通常是 shape: $(batch_size, num_heads, seq_len, head_dim)$。</p>
+<p>在实现中，常按 head 维度组织缓存。</p>
+<h3 id="4-工程优化">4. 工程优化<a hidden class="anchor" aria-hidden="true" href="#4-工程优化">#</a></h3>
+<ul>
+<li><strong>内存管理</strong>：缓存随序列增长而增长，需注意显存限制。</li>
+<li><strong>PagedAttention（vLLM）</strong>：将 KV Cache 分页存储，提高内存利用率。</li>
+<li><strong>量化 KV Cache</strong>：用 int8/float16 存储 K、V，减少显存占用。</li>
+<li><strong>滑动窗口注意力</strong>：只缓存最近 $N$ 个 token 的 KV，适用于长上下文。</li>
+</ul>
+<hr>
+<h2 id="三python-代码-demo简化版">三、Python 代码 Demo（简化版）<a hidden class="anchor" aria-hidden="true" href="#三python-代码-demo简化版">#</a></h2>
+<p>下面是一个 <strong>不依赖深度学习框架</strong> 的纯 NumPy 实现，演示 KV Cache 如何工作。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 设置随机种子以便复现</span>
+</span></span><span class="line"><span class="cl"><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SimpleKVCacheDemo</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">d_k</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">d_v</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">d_model</span> <span class="o">=</span> <span class="n">d_model</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">d_k</span> <span class="o">=</span> <span class="n">d_k</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">d_v</span> <span class="o">=</span> <span class="n">d_v</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 随机初始化权重（模拟训练好的模型）</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">W_Q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_k</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">W_K</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_k</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">W_V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_v</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">W_O</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_v</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>  <span class="c1"># 输出投影（可选）</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># 初始化 KV 缓存</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">K_cache</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># shape: (seq_len, d_k)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">V_cache</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># shape: (seq_len, d_v)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">K_cache</span> <span class="o">=</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">V_cache</span> <span class="o">=</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        x: np.array of shape (d_model,) — 当前输入 token 的 embedding
+</span></span></span><span class="line"><span class="cl"><span class="s2">        返回输出表示，并更新 KV cache
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">        正常的前向输入是[bs, seq_len, d_model],这里考虑bs=1的情况，在推理过程中，每次输入为刚刚生成的最新的token，所以说当前输入的token维度为：[1, d_model]
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (1, d_model)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># 计算当前 token 的 Q, K, V</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Q</span> <span class="o">=</span> <span class="n">x</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">W_Q</span>  <span class="c1"># (1, d_k)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">K</span> <span class="o">=</span> <span class="n">x</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">W_K</span>  <span class="c1"># (1, d_k)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">V</span> <span class="o">=</span> <span class="n">x</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">W_V</span>  <span class="c1"># (1, d_v)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">K_cache</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1"># 第一个 token</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">K_cache</span> <span class="o">=</span> <span class="n">K</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">V_cache</span> <span class="o">=</span> <span class="n">V</span>
+</span></span><span class="line"><span class="cl">            <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">]])</span>  <span class="c1"># softmax([0]) = [1]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1"># 拼接缓存</span>
+</span></span><span class="line"><span class="cl">            <span class="n">K_full</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">K_cache</span><span class="p">,</span> <span class="n">K</span><span class="p">])</span>  <span class="c1"># (seq_len+1, d_k)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">V_full</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">V_cache</span><span class="p">,</span> <span class="n">V</span><span class="p">])</span>  <span class="c1"># (seq_len+1, d_v)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="c1"># 计算 attention scores: Q @ K_full^T</span>
+</span></span><span class="line"><span class="cl">            <span class="n">scores</span> <span class="o">=</span> <span class="n">Q</span> <span class="o">@</span> <span class="n">K_full</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d_k</span><span class="p">)</span>  <span class="c1"># (1, seq_len+1)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">scores</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">scores</span><span class="p">))</span>  <span class="c1"># numerical stability</span>
+</span></span><span class="line"><span class="cl">            <span class="n">attn_weights</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="c1"># 更新缓存</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">K_cache</span> <span class="o">=</span> <span class="n">K_full</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">V_cache</span> <span class="o">=</span> <span class="n">V_full</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># 加权求和</span>
+</span></span><span class="line"><span class="cl">        <span class="n">output</span> <span class="o">=</span> <span class="n">attn_weights</span> <span class="o">@</span> <span class="n">V_full</span>  <span class="c1"># (1, d_v)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">output</span> <span class="o">=</span> <span class="n">output</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">W_O</span>       <span class="c1"># (1, d_model)</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 在推理过程中，每个attention的维度就是(1, d_model)，不同于训练中，维度为(seq_len, d_model)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ------------------ Demo ------------------</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 模拟 token embeddings（比如来自 embedding layer）</span>
+</span></span><span class="line"><span class="cl"><span class="n">embeddings</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">SimpleKVCacheDemo</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;=== Without KV Cache (naive recompute) ===&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 这里我们不实现无缓存版本，但逻辑上每步都要重算全部</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;</span><span class="se">\n</span><span class="s2">=== With KV Cache ===&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span><span class="o">.</span><span class="n">clear_cache</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">emb</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">embeddings</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">out</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">forward_step</span><span class="p">(</span><span class="n">emb</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Step </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">: output norm = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, &#34;</span>
+</span></span><span class="line"><span class="cl">          <span class="sa">f</span><span class="s2">&#34;cache length = </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">K_cache</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 验证：如果重新输入相同序列，缓存会累积</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;</span><span class="se">\n</span><span class="s2">Adding one more token...&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">out</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">forward_step</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Step 5: cache length = </span><span class="si">{</span><span class="n">model</span><span class="o">.</span><span class="n">K_cache</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="输出示例">输出示例：<a hidden class="anchor" aria-hidden="true" href="#输出示例">#</a></h3>
+<pre tabindex="0"><code>=== With KV Cache ===
+Step 1: output norm = 7.8921, cache length = 1
+Step 2: output norm = 8.1023, cache length = 2
+Step 3: output norm = 7.9542, cache length = 3
+Step 4: output norm = 8.0124, cache length = 4
+
+Adding one more token...
+Step 5: cache length = 5
+</code></pre><blockquote>
+<p>💡 此 demo 虽简化（单头、无 batch、无 LayerNorm 等），但完整展示了 KV Cache 的核心机制：<strong>缓存 K、V，避免重复计算</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="四实际应用中的-kv-cache补充">四、实际应用中的 KV Cache（补充）<a hidden class="anchor" aria-hidden="true" href="#四实际应用中的-kv-cache补充">#</a></h2>
+<p>在真实 LLM 推理引擎中（如 HuggingFace Transformers、vLLM、TensorRT-LLM）：</p>
+<ul>
+<li>KV Cache 是默认启用的（<code>past_key_values</code> 参数）；</li>
+<li>支持 batch 推理（不同序列长度需 padding 或使用 PagedAttention）；</li>
+<li>可通过 <code>use_cache=True</code> 控制；</li>
+<li>显存占用 ≈ $2 \times \text{num_layers} \times \text{num_heads} \times \text{seq_len} \times \text{head_dim} \times \text{bytes_per_param}$</li>
+</ul>
+<p>例如 HuggingFace 中使用：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoModelForCausalLM</span><span class="p">,</span> <span class="n">AutoTokenizer</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&#34;gpt2&#34;</span><span class="p">,</span> <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&#34;gpt2&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">inputs</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="s2">&#34;Hello, how are&#34;</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&#34;pt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">)</span>  <span class="c1"># 第一次：计算全部 KV</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># outputs.past_key_values 包含各层的 (K, V) 缓存</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 下一步生成：</span>
+</span></span><span class="line"><span class="cl"><span class="n">next_input</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="p">(</span><span class="s2">&#34; you&#34;</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&#34;pt&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">input_ids</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">:]</span>
+</span></span><span class="line"><span class="cl"><span class="n">outputs2</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">input_ids</span><span class="o">=</span><span class="n">next_input</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">past_key_values</span><span class="o">=</span><span class="n">outputs</span><span class="o">.</span><span class="n">past_key_values</span>  <span class="c1"># 传入缓存！</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><hr>
+<h2 id="总结">总结<a hidden class="anchor" aria-hidden="true" href="#总结">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>项目</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>动机</strong></td>
+          <td>避免自回归生成中重复计算 K、V</td>
+      </tr>
+      <tr>
+          <td><strong>核心</strong></td>
+          <td>缓存历史 token 的 Key 和 Value</td>
+      </tr>
+      <tr>
+          <td><strong>优势</strong></td>
+          <td>推理速度提升，每步 $O(1)$ 计算</td>
+      </tr>
+      <tr>
+          <td><strong>代价</strong></td>
+          <td>额外显存（与序列长度线性增长）</td>
+      </tr>
+      <tr>
+          <td><strong>扩展技术</strong></td>
+          <td>PagedAttention、KV 量化、滑动窗口</td>
+      </tr>
+  </tbody>
+</table>
+<p>KV Cache 是现代 LLM 高效推理的基石之一，理解它对优化部署、设计推理引擎至关重要。</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">My work notes</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

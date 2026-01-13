@@ -55,7 +55,9 @@ Decoder则负责根据Encoder的输出和之前生成的token来预测下一个t
 多头注意力机制(Multi-Head Attention)
 位置全连接前馈网络(Position-wise Feed-Forward Networks)
 
-其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&quot;偷看&quot;未来的信息。">
+其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&quot;偷看&quot;未来的信息。
+基本组件详解
+现在让我们深入了解一下Transformer内部的各个组件：">
 <meta name="author" content="fandengdong">
 <link rel="canonical" href="http://localhost:1313/llm/architecture/transformer/">
 <link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
@@ -138,7 +140,8 @@ pos是位置索引，即token在序列中的位置，从0开始； i是维度索
 Encoder：信息的加工厂 Encoder负责将输入序列转换成一系列隐藏表示。它由N个相同的层堆叠而成，每一层都包含两个子层：
 多头自注意力机制(Multi-Head Self-Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 每层都有残差连接和层归一化，这使得深层网络也能稳定训练。
 Decoder：创作的艺术家 Decoder则负责根据Encoder的输出和之前生成的token来预测下一个token。它的结构比Encoder稍复杂一些，包含三个子层：
-掩码多头自注意力机制(Masked Multi-Head Self-Attention) 多头注意力机制(Multi-Head Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&#34;偷看&#34;未来的信息。">
+掩码多头自注意力机制(Masked Multi-Head Self-Attention) 多头注意力机制(Multi-Head Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&#34;偷看&#34;未来的信息。
+基本组件详解 现在让我们深入了解一下Transformer内部的各个组件：">
   <meta property="og:locale" content="zh-CN">
   <meta property="og:type" content="article">
     <meta property="article:section" content="llm">
@@ -194,7 +197,9 @@ Decoder则负责根据Encoder的输出和之前生成的token来预测下一个t
 多头注意力机制(Multi-Head Attention)
 位置全连接前馈网络(Position-wise Feed-Forward Networks)
 
-其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&quot;偷看&quot;未来的信息。">
+其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&quot;偷看&quot;未来的信息。
+基本组件详解
+现在让我们深入了解一下Transformer内部的各个组件：">
 
 
 <script type="application/ld+json">
@@ -229,7 +234,7 @@ Decoder则负责根据Encoder的输出和之前生成的token来预测下一个t
   "@type": "BlogPosting",
   "headline": "一切的开始 - Transformer架构",
   "name": "一切的开始 - Transformer架构",
-  "description": "Transformer的诞生背景 在深度学习的世界里，序列建模一直是个老大难问题。传统的循环神经网络(RNN)虽然能够处理序列数据，但在处理长序列时存在梯度消失和计算效率低下的问题。而卷积神经网络(CNN)虽然并行化程度高，但在捕捉长距离依赖关系方面力不从心。\n就在这个关键时刻，Google的大神们在2017年扔出了一个\u0026quot;核弹级\u0026quot;的解决方案——《Attention Is All You Need》。这篇论文彻底颠覆了人们对序列建模的认知，提出了完全基于注意力机制的Transformer架构。\n翻译任务：Transformer的试验场 Transformer最初是为了机器翻译任务而设计的。想象一下，你要把一句中文翻译成英文：\n中文输入: \u0026ldquo;我喜欢学习人工智能\u0026rdquo;\n英文输出: \u0026ldquo;I like studying artificial intelligence\u0026rdquo;\n在这个过程中，模型需要理解每个词的含义，并找到它们之间的对应关系。传统的Seq2Seq模型依赖RNN来编码输入序列，但效果有限。而Transformer通过自注意力机制，能够同时关注输入序列中的所有位置，大大提升了翻译质量。\nTransformer的基本输入输出 输入的秘密 Transformer的输入其实很简单，就是一个个token（可以是单词、子词或者字符）。假设我们的词汇表大小为[vocab_size, embedding_dim]，输入句子的token长度为seq_len，每个token会被转换成一个vector向量，维度为[embedding_dim]，则整个输入句子的shape为[ seq_len, embedding_dim]。\n但是，为了让模型理解序列的顺序，还需要加入位置编码(Positional Encoding)。这就是著名的公式：\n$$ PE_{(pos,2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right) $$\n$$ PE_{(pos,2i+1)} = \\cos\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right) $$\npos是位置索引，即token在序列中的位置，从0开始； i是维度索引，从0开始到$d_{model}-1$结束，表示词嵌入的维度； $d_{model}$是词嵌入（word embedding）的维度embedding_dim 观察输入句子的shape: [seq_len, embedding_dim]，位置编码的时候，pos对应的是token在seq_len维度的位置，而维度索引i对应词嵌入embedding_dim的维度。\n输出的魅力 Transformer的输出同样是一系列token，但它还有一个特殊之处——它是一个概率分布。对于每个时间步，模型会输出词汇表中每个词的概率，然后通过贪婪搜索或束搜索来选择最合适的词。这些搜索算法构成了推理时扩展算法的基础。\n补充贪婪搜索和束搜索的算法：\n贪婪搜索是一种简单直接的解码策略。在每个时间步，它总是选择具有最高概率的token作为下一个输出，不考虑后续可能的影响。优点是计算简单，速度快，内存占用少；缺点则是容易陷入局部最优，生成结果缺乏多样性。 束搜索是对贪婪搜索的改进，在每个时间步保留beam_width个最有希望的候选序列，而不是只保留一个。相比贪婪搜索能找到更优的序列，在合理的时间内探索多个可能性；缺点则是计算复杂度较高，需要调整beam_width参数，仍可能错过全局最优解。 核心模块：Encoder和Decoder Transformer的核心由两大部分组成：Encoder和Decoder。\nEncoder：信息的加工厂 Encoder负责将输入序列转换成一系列隐藏表示。它由N个相同的层堆叠而成，每一层都包含两个子层：\n多头自注意力机制(Multi-Head Self-Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 每层都有残差连接和层归一化，这使得深层网络也能稳定训练。\nDecoder：创作的艺术家 Decoder则负责根据Encoder的输出和之前生成的token来预测下一个token。它的结构比Encoder稍复杂一些，包含三个子层：\n掩码多头自注意力机制(Masked Multi-Head Self-Attention) 多头注意力机制(Multi-Head Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能\u0026quot;偷看\u0026quot;未来的信息。\n",
+  "description": "Transformer的诞生背景 在深度学习的世界里，序列建模一直是个老大难问题。传统的循环神经网络(RNN)虽然能够处理序列数据，但在处理长序列时存在梯度消失和计算效率低下的问题。而卷积神经网络(CNN)虽然并行化程度高，但在捕捉长距离依赖关系方面力不从心。\n就在这个关键时刻，Google的大神们在2017年扔出了一个\u0026quot;核弹级\u0026quot;的解决方案——《Attention Is All You Need》。这篇论文彻底颠覆了人们对序列建模的认知，提出了完全基于注意力机制的Transformer架构。\n翻译任务：Transformer的试验场 Transformer最初是为了机器翻译任务而设计的。想象一下，你要把一句中文翻译成英文：\n中文输入: \u0026ldquo;我喜欢学习人工智能\u0026rdquo;\n英文输出: \u0026ldquo;I like studying artificial intelligence\u0026rdquo;\n在这个过程中，模型需要理解每个词的含义，并找到它们之间的对应关系。传统的Seq2Seq模型依赖RNN来编码输入序列，但效果有限。而Transformer通过自注意力机制，能够同时关注输入序列中的所有位置，大大提升了翻译质量。\nTransformer的基本输入输出 输入的秘密 Transformer的输入其实很简单，就是一个个token（可以是单词、子词或者字符）。假设我们的词汇表大小为[vocab_size, embedding_dim]，输入句子的token长度为seq_len，每个token会被转换成一个vector向量，维度为[embedding_dim]，则整个输入句子的shape为[ seq_len, embedding_dim]。\n但是，为了让模型理解序列的顺序，还需要加入位置编码(Positional Encoding)。这就是著名的公式：\n$$ PE_{(pos,2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right) $$\n$$ PE_{(pos,2i+1)} = \\cos\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right) $$\npos是位置索引，即token在序列中的位置，从0开始； i是维度索引，从0开始到$d_{model}-1$结束，表示词嵌入的维度； $d_{model}$是词嵌入（word embedding）的维度embedding_dim 观察输入句子的shape: [seq_len, embedding_dim]，位置编码的时候，pos对应的是token在seq_len维度的位置，而维度索引i对应词嵌入embedding_dim的维度。\n输出的魅力 Transformer的输出同样是一系列token，但它还有一个特殊之处——它是一个概率分布。对于每个时间步，模型会输出词汇表中每个词的概率，然后通过贪婪搜索或束搜索来选择最合适的词。这些搜索算法构成了推理时扩展算法的基础。\n补充贪婪搜索和束搜索的算法：\n贪婪搜索是一种简单直接的解码策略。在每个时间步，它总是选择具有最高概率的token作为下一个输出，不考虑后续可能的影响。优点是计算简单，速度快，内存占用少；缺点则是容易陷入局部最优，生成结果缺乏多样性。 束搜索是对贪婪搜索的改进，在每个时间步保留beam_width个最有希望的候选序列，而不是只保留一个。相比贪婪搜索能找到更优的序列，在合理的时间内探索多个可能性；缺点则是计算复杂度较高，需要调整beam_width参数，仍可能错过全局最优解。 核心模块：Encoder和Decoder Transformer的核心由两大部分组成：Encoder和Decoder。\nEncoder：信息的加工厂 Encoder负责将输入序列转换成一系列隐藏表示。它由N个相同的层堆叠而成，每一层都包含两个子层：\n多头自注意力机制(Multi-Head Self-Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 每层都有残差连接和层归一化，这使得深层网络也能稳定训练。\nDecoder：创作的艺术家 Decoder则负责根据Encoder的输出和之前生成的token来预测下一个token。它的结构比Encoder稍复杂一些，包含三个子层：\n掩码多头自注意力机制(Masked Multi-Head Self-Attention) 多头注意力机制(Multi-Head Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能\u0026quot;偷看\u0026quot;未来的信息。\n基本组件详解 现在让我们深入了解一下Transformer内部的各个组件：\n",
   "keywords": [
     
   ],
@@ -339,7 +344,7 @@ Decoder则负责根据Encoder的输出和之前生成的token来预测下一个t
   <div class="post-content"><h2 id="transformer的诞生背景">Transformer的诞生背景<a hidden class="anchor" aria-hidden="true" href="#transformer的诞生背景">#</a></h2>
 <p>在深度学习的世界里，序列建模一直是个老大难问题。传统的循环神经网络(RNN)虽然能够处理序列数据，但在处理长序列时存在梯度消失和计算效率低下的问题。而卷积神经网络(CNN)虽然并行化程度高，但在捕捉长距离依赖关系方面力不从心。</p>
 <p>就在这个关键时刻，Google的大神们在2017年扔出了一个&quot;核弹级&quot;的解决方案——《Attention Is All You Need》。这篇论文彻底颠覆了人们对序列建模的认知，提出了完全基于注意力机制的Transformer架构。</p>
-<p><img alt="Transformer Architecture" loading="lazy" src="/llm/architecture/transformer/transformer.png"></p>
+<img src="transformer.png" alt="transformer" style="width:60%;height:auto;">
 <h2 id="翻译任务transformer的试验场">翻译任务：Transformer的试验场<a hidden class="anchor" aria-hidden="true" href="#翻译任务transformer的试验场">#</a></h2>
 <p>Transformer最初是为了机器翻译任务而设计的。想象一下，你要把一句中文翻译成英文：</p>
 <p><strong>中文输入</strong>: &ldquo;我喜欢学习人工智能&rdquo;</p>

@@ -178,7 +178,7 @@
     <p>一、MLA 的由来 背景：KV Cache 成为推理瓶颈 在 Transformer 解码器中，自回归生成时需缓存所有历史 token 的 Key 和 Value（即 KV Cache）。随着上下文长度增长（如 32K、128K tokens），KV Cache 占用大量显存和带宽，成为推理效率的主要瓶颈。
 目标：压缩 KV Cache 为减少 KV Cache 大小，研究者提出多种压缩方法：
 MQA（Multi-Query Attention）：所有头共享一组 K/V。 GQA（Grouped-Query Attention）：将多个头分组共享 K/V。 MLA（Multi-head Latent Attention）：不直接存储原始 K/V，而是学习一个低维“潜在表示”（latent code），通过小型网络动态重建近似的 K/V。 提出者与出处 DeepSeek-V2（2024） 首次系统性提出并命名 MLA（Multi-head Latent Attention）。 核心思想：用 低秩潜在向量 &#43; 小型投影网络 代替传统 KV Cache，大幅降低内存占用（论文称减少 77% KV Cache）。 二、基本原理 MLA 的核心思想是：
-不显式存储每个 token 的 K 和 V，而是存储一个紧凑的“潜在向量” ( z_t \in \mathbb{R}^{d_z} )（( d_z \ll d_k, d_v )），在需要时通过轻量级可学习映射 ( f_K, f_V ) 动态重建 K 和 V。
+不显式存储每个 token 的 K 和 V，而是存储一个紧凑的“潜在向量” $ z_t \in \mathbb{R}^{d_z} $（$ d_z \ll d_k, d_v $），在需要时通过轻量级可学习映射 $ f_K, f_V $ 动态重建 K 和 V。
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2026-01-07 00:00:00 +0000 UTC'>January 7, 2026</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
@@ -340,6 +340,7 @@ Encoder：信息的加工厂 Encoder负责将输入序列转换成一系列隐�
 多头自注意力机制(Multi-Head Self-Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 每层都有残差连接和层归一化，这使得深层网络也能稳定训练。
 Decoder：创作的艺术家 Decoder则负责根据Encoder的输出和之前生成的token来预测下一个token。它的结构比Encoder稍复杂一些，包含三个子层：
 掩码多头自注意力机制(Masked Multi-Head Self-Attention) 多头注意力机制(Multi-Head Attention) 位置全连接前馈网络(Position-wise Feed-Forward Networks) 其中掩码机制确保在生成当前位置的输出时，只能看到之前的位置，不能&#34;偷看&#34;未来的信息。
+基本组件详解 现在让我们深入了解一下Transformer内部的各个组件：
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2025-12-19 00:00:00 +0000 UTC'>December 19, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
@@ -375,6 +376,12 @@ Mamba：将注意力机制替换为结构化状态空间模型（SSM），通过
   <footer class="entry-footer"><span title='2025-12-19 00:00:00 +0000 UTC'>December 19, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span></footer>
   <a class="entry-link" aria-label="post link to 综述 - Transformer架构的演进" href="http://localhost:1313/llm/architecture/transformer%E6%9E%B6%E6%9E%84%E7%9A%84%E6%BC%94%E8%BF%9B/"></a>
 </article>
+<footer class="page-footer">
+  <nav class="pagination">
+    <a class="next" href="http://localhost:1313/llm/architecture/page/2/">Next&nbsp;&nbsp;»
+    </a>
+  </nav>
+</footer>
     </main>
     
 <footer class="footer">

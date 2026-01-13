@@ -70,6 +70,15 @@
     <loc>http://localhost:1313/toolbox/hugo/demo_math_and_image/</loc>
     <lastmod>2025-11-06T18:00:00+08:00</lastmod>
   </url><url>
+    <loc>http://localhost:1313/llm/architecture/kv-cache/</loc>
+    <lastmod>2025-01-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/gdn/</loc>
+    <lastmod>2025-01-09T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/llm/architecture/mhc/</loc>
+    <lastmod>2025-01-08T00:00:00+00:00</lastmod>
+  </url><url>
     <loc>http://localhost:1313/llm/vllm/deployment/</loc>
     <lastmod>2024-01-20T00:00:00+00:00</lastmod>
   </url><url>

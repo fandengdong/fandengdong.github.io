@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>mHC - Manifold-Constrained Hyper-Connections 流形约束超链接 | My work notes</title>
+<meta name="keywords" content="">
+<meta name="description" content="Ref: mHC: Manifold-Constrained Hyper-Connections 
+
+Introduction
+自从ResNets的提出，深度神经网络架构经历了快速的演进。一个常规的ResNet层结果如上面图(a)所示，其数学表达式描述为：
+$$
+\mathbf{x}_{l&#43;1} = \mathbf{x}_l &#43; \mathcal{F}(\mathbf{x}_l, W_l)             \tag{1}
+$$
+其中$\mathbf{x}l$和$\mathbf{x}{l&#43;1}$表示输入和输出向量，是一个$C$维度的向量。$\mathcal{F}$表示残差函数，$W_l$表示权重矩阵。尽管残差函数F在过去十年中已发展出卷积、注意力机制和前馈网络等多种操作，但残差连接的范式仍保持其原始形式。随着Transformer架构的发展，该范式目前已确立为大型语言模型（LLMs）的基本设计元素。
+这一成功主要归功于残差连接的简洁形式。更重要的是，早期研究揭示了残差连接的恒等映射特性在大规模训练中保持稳定性和效率。通过递归扩展残差连接跨越多层，等式（1）得出：
+$$
+\mathbf{x}_{L} = \mathbf{x}l &#43; \sum{i=l}^{L-1} \mathcal{F}(\mathbf{x}_l, W_l)             \tag{2}
+$$
+其中$L$和$l$分别对应较深和较浅的层。恒等映射项指的是组件$x_l$本身，强调了来自较浅层的信号未经任何修改直接映射到较深层的特性。
+近期，以超连接（Hyper-Connections，HC）（Zhu 等人，2024）为代表的研究为残差连接引入了新维度，并通过实证验证了其性能潜力。HC的单层架构如图1(b)所示。通过扩展残差流宽度并增强连接复杂度，HC在不改变单个单元浮点运算（FLOPs）计算开销的前提下，显著提升了拓扑复杂度。形式化地，HC中的单层传播定义为：
+$$
+\mathbf{x}_{l&#43;1} = \mathcal{H}_l^{\text{res}} \mathbf{x}_l &#43; \mathcal{H}_l^{\text{post}}{}^\top \mathcal{F}(\mathcal{H}_l^{\text{pre}}   \mathbf{x}_l, W_l)    \tag{3}
+$$
+其中，$\mathbf{x}l$ 和 $\mathbf{x}{l&#43;1}$ 分别表示第 $l$ 层的输入和输出。与公式 (1) 中的表述不同，$\mathbf{x}l$ 和 $\mathbf{x}{l&#43;1}$ 的特征维度从 $C$ 扩展到了 $n \times C$，其中 $n$ 是扩展倍率（expansion rate）。项 $\mathcal{H}_l^{\text{res}} \in \mathbb{R}^{n \times n}$ 表示一个可学习的映射，用于在残差流（residual stream）内部混合特征。同样作为可学习映射，$\mathcal{H}_l^{\text{pre}} \in \mathbb{R}^{1 \times n}$ 将来自 $nC$ 维流中的特征聚合为一个 $C$ 维的层输入；反之，$\mathcal{H}_l^{\text{post}} \in \mathbb{R}^{1 \times n}$ 将层的输出重新映射回原始流中。">
+<meta name="author" content="fandengdong">
+<link rel="canonical" href="http://localhost:1313/llm/architecture/mhc/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.343cc480b9ffc8f04ccbe5e968ad674880cab773ec19905e93033065c1e7a804.css" integrity="sha256-NDzEgLn/yPBMy&#43;XpaK1nSIDKt3PsGZBekwMwZcHnqAQ=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/llm/architecture/mhc/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><meta property="og:url" content="http://localhost:1313/llm/architecture/mhc/">
+  <meta property="og:site_name" content="My work notes">
+  <meta property="og:title" content="mHC - Manifold-Constrained Hyper-Connections 流形约束超链接">
+  <meta property="og:description" content="Ref: mHC: Manifold-Constrained Hyper-Connections Introduction 自从ResNets的提出，深度神经网络架构经历了快速的演进。一个常规的ResNet层结果如上面图(a)所示，其数学表达式描述为：
+$$ \mathbf{x}_{l&#43;1} = \mathbf{x}_l &#43; \mathcal{F}(\mathbf{x}_l, W_l) \tag{1} $$
+其中$\mathbf{x}l$和$\mathbf{x}{l&#43;1}$表示输入和输出向量，是一个$C$维度的向量。$\mathcal{F}$表示残差函数，$W_l$表示权重矩阵。尽管残差函数F在过去十年中已发展出卷积、注意力机制和前馈网络等多种操作，但残差连接的范式仍保持其原始形式。随着Transformer架构的发展，该范式目前已确立为大型语言模型（LLMs）的基本设计元素。
+这一成功主要归功于残差连接的简洁形式。更重要的是，早期研究揭示了残差连接的恒等映射特性在大规模训练中保持稳定性和效率。通过递归扩展残差连接跨越多层，等式（1）得出：
+$$ \mathbf{x}_{L} = \mathbf{x}l &#43; \sum{i=l}^{L-1} \mathcal{F}(\mathbf{x}_l, W_l) \tag{2} $$
+其中$L$和$l$分别对应较深和较浅的层。恒等映射项指的是组件$x_l$本身，强调了来自较浅层的信号未经任何修改直接映射到较深层的特性。
+近期，以超连接（Hyper-Connections，HC）（Zhu 等人，2024）为代表的研究为残差连接引入了新维度，并通过实证验证了其性能潜力。HC的单层架构如图1(b)所示。通过扩展残差流宽度并增强连接复杂度，HC在不改变单个单元浮点运算（FLOPs）计算开销的前提下，显著提升了拓扑复杂度。形式化地，HC中的单层传播定义为：
+$$ \mathbf{x}_{l&#43;1} = \mathcal{H}_l^{\text{res}} \mathbf{x}_l &#43; \mathcal{H}_l^{\text{post}}{}^\top \mathcal{F}(\mathcal{H}_l^{\text{pre}} \mathbf{x}_l, W_l) \tag{3} $$
+其中，$\mathbf{x}l$ 和 $\mathbf{x}{l&#43;1}$ 分别表示第 $l$ 层的输入和输出。与公式 (1) 中的表述不同，$\mathbf{x}l$ 和 $\mathbf{x}{l&#43;1}$ 的特征维度从 $C$ 扩展到了 $n \times C$，其中 $n$ 是扩展倍率（expansion rate）。项 $\mathcal{H}_l^{\text{res}} \in \mathbb{R}^{n \times n}$ 表示一个可学习的映射，用于在残差流（residual stream）内部混合特征。同样作为可学习映射，$\mathcal{H}_l^{\text{pre}} \in \mathbb{R}^{1 \times n}$ 将来自 $nC$ 维流中的特征聚合为一个 $C$ 维的层输入；反之，$\mathcal{H}_l^{\text{post}} \in \mathbb{R}^{1 \times n}$ 将层的输出重新映射回原始流中。">
+  <meta property="og:locale" content="zh-CN">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="llm">
+    <meta property="article:published_time" content="2025-01-08T00:00:00+00:00">
+    <meta property="article:modified_time" content="2025-01-08T00:00:00+00:00">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="mHC - Manifold-Constrained Hyper-Connections 流形约束超链接">
+<meta name="twitter:description" content="Ref: mHC: Manifold-Constrained Hyper-Connections 
+
+Introduction
+自从ResNets的提出，深度神经网络架构经历了快速的演进。一个常规的ResNet层结果如上面图(a)所示，其数学表达式描述为：
+$$
+\mathbf{x}_{l&#43;1} = \mathbf{x}_l &#43; \mathcal{F}(\mathbf{x}_l, W_l)             \tag{1}
+$$
+其中$\mathbf{x}l$和$\mathbf{x}{l&#43;1}$表示输入和输出向量，是一个$C$维度的向量。$\mathcal{F}$表示残差函数，$W_l$表示权重矩阵。尽管残差函数F在过去十年中已发展出卷积、注意力机制和前馈网络等多种操作，但残差连接的范式仍保持其原始形式。随着Transformer架构的发展，该范式目前已确立为大型语言模型（LLMs）的基本设计元素。
+这一成功主要归功于残差连接的简洁形式。更重要的是，早期研究揭示了残差连接的恒等映射特性在大规模训练中保持稳定性和效率。通过递归扩展残差连接跨越多层，等式（1）得出：
+$$
+\mathbf{x}_{L} = \mathbf{x}l &#43; \sum{i=l}^{L-1} \mathcal{F}(\mathbf{x}_l, W_l)             \tag{2}
+$$
+其中$L$和$l$分别对应较深和较浅的层。恒等映射项指的是组件$x_l$本身，强调了来自较浅层的信号未经任何修改直接映射到较深层的特性。
+近期，以超连接（Hyper-Connections，HC）（Zhu 等人，2024）为代表的研究为残差连接引入了新维度，并通过实证验证了其性能潜力。HC的单层架构如图1(b)所示。通过扩展残差流宽度并增强连接复杂度，HC在不改变单个单元浮点运算（FLOPs）计算开销的前提下，显著提升了拓扑复杂度。形式化地，HC中的单层传播定义为：
+$$
+\mathbf{x}_{l&#43;1} = \mathcal{H}_l^{\text{res}} \mathbf{x}_l &#43; \mathcal{H}_l^{\text{post}}{}^\top \mathcal{F}(\mathcal{H}_l^{\text{pre}}   \mathbf{x}_l, W_l)    \tag{3}
+$$
+其中，$\mathbf{x}l$ 和 $\mathbf{x}{l&#43;1}$ 分别表示第 $l$ 层的输入和输出。与公式 (1) 中的表述不同，$\mathbf{x}l$ 和 $\mathbf{x}{l&#43;1}$ 的特征维度从 $C$ 扩展到了 $n \times C$，其中 $n$ 是扩展倍率（expansion rate）。项 $\mathcal{H}_l^{\text{res}} \in \mathbb{R}^{n \times n}$ 表示一个可学习的映射，用于在残差流（residual stream）内部混合特征。同样作为可学习映射，$\mathcal{H}_l^{\text{pre}} \in \mathbb{R}^{1 \times n}$ 将来自 $nC$ 维流中的特征聚合为一个 $C$ 维的层输入；反之，$\mathcal{H}_l^{\text{post}} \in \mathbb{R}^{1 \times n}$ 将层的输出重新映射回原始流中。">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "大语言模型 (LLM)",
+      "item": "http://localhost:1313/llm/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "LLM architecture",
+      "item": "http://localhost:1313/llm/architecture/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  3 ,
+      "name": "mHC - Manifold-Constrained Hyper-Connections 流形约束超链接",
+      "item": "http://localhost:1313/llm/architecture/mhc/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "mHC - Manifold-Constrained Hyper-Connections 流形约束超链接",
+  "name": "mHC - Manifold-Constrained Hyper-Connections 流形约束超链接",
+  "description": "Ref: mHC: Manifold-Constrained Hyper-Connections Introduction 自从ResNets的提出，深度神经网络架构经历了快速的演进。一个常规的ResNet层结果如上面图(a)所示，其数学表达式描述为：\n$$ \\mathbf{x}_{l+1} = \\mathbf{x}_l + \\mathcal{F}(\\mathbf{x}_l, W_l) \\tag{1} $$\n其中$\\mathbf{x}l$和$\\mathbf{x}{l+1}$表示输入和输出向量，是一个$C$维度的向量。$\\mathcal{F}$表示残差函数，$W_l$表示权重矩阵。尽管残差函数F在过去十年中已发展出卷积、注意力机制和前馈网络等多种操作，但残差连接的范式仍保持其原始形式。随着Transformer架构的发展，该范式目前已确立为大型语言模型（LLMs）的基本设计元素。\n这一成功主要归功于残差连接的简洁形式。更重要的是，早期研究揭示了残差连接的恒等映射特性在大规模训练中保持稳定性和效率。通过递归扩展残差连接跨越多层，等式（1）得出：\n$$ \\mathbf{x}_{L} = \\mathbf{x}l + \\sum{i=l}^{L-1} \\mathcal{F}(\\mathbf{x}_l, W_l) \\tag{2} $$\n其中$L$和$l$分别对应较深和较浅的层。恒等映射项指的是组件$x_l$本身，强调了来自较浅层的信号未经任何修改直接映射到较深层的特性。\n近期，以超连接（Hyper-Connections，HC）（Zhu 等人，2024）为代表的研究为残差连接引入了新维度，并通过实证验证了其性能潜力。HC的单层架构如图1(b)所示。通过扩展残差流宽度并增强连接复杂度，HC在不改变单个单元浮点运算（FLOPs）计算开销的前提下，显著提升了拓扑复杂度。形式化地，HC中的单层传播定义为：\n$$ \\mathbf{x}_{l+1} = \\mathcal{H}_l^{\\text{res}} \\mathbf{x}_l + \\mathcal{H}_l^{\\text{post}}{}^\\top \\mathcal{F}(\\mathcal{H}_l^{\\text{pre}} \\mathbf{x}_l, W_l) \\tag{3} $$\n其中，$\\mathbf{x}l$ 和 $\\mathbf{x}{l+1}$ 分别表示第 $l$ 层的输入和输出。与公式 (1) 中的表述不同，$\\mathbf{x}l$ 和 $\\mathbf{x}{l+1}$ 的特征维度从 $C$ 扩展到了 $n \\times C$，其中 $n$ 是扩展倍率（expansion rate）。项 $\\mathcal{H}_l^{\\text{res}} \\in \\mathbb{R}^{n \\times n}$ 表示一个可学习的映射，用于在残差流（residual stream）内部混合特征。同样作为可学习映射，$\\mathcal{H}_l^{\\text{pre}} \\in \\mathbb{R}^{1 \\times n}$ 将来自 $nC$ 维流中的特征聚合为一个 $C$ 维的层输入；反之，$\\mathcal{H}_l^{\\text{post}} \\in \\mathbb{R}^{1 \\times n}$ 将层的输出重新映射回原始流中。\n",
+  "keywords": [
+    
+  ],
+  "articleBody": "Ref: mHC: Manifold-Constrained Hyper-Connections Introduction 自从ResNets的提出，深度神经网络架构经历了快速的演进。一个常规的ResNet层结果如上面图(a)所示，其数学表达式描述为：\n$$ \\mathbf{x}_{l+1} = \\mathbf{x}_l + \\mathcal{F}(\\mathbf{x}_l, W_l) \\tag{1} $$\n其中$\\mathbf{x}l$和$\\mathbf{x}{l+1}$表示输入和输出向量，是一个$C$维度的向量。$\\mathcal{F}$表示残差函数，$W_l$表示权重矩阵。尽管残差函数F在过去十年中已发展出卷积、注意力机制和前馈网络等多种操作，但残差连接的范式仍保持其原始形式。随着Transformer架构的发展，该范式目前已确立为大型语言模型（LLMs）的基本设计元素。\n这一成功主要归功于残差连接的简洁形式。更重要的是，早期研究揭示了残差连接的恒等映射特性在大规模训练中保持稳定性和效率。通过递归扩展残差连接跨越多层，等式（1）得出：\n$$ \\mathbf{x}_{L} = \\mathbf{x}l + \\sum{i=l}^{L-1} \\mathcal{F}(\\mathbf{x}_l, W_l) \\tag{2} $$\n其中$L$和$l$分别对应较深和较浅的层。恒等映射项指的是组件$x_l$本身，强调了来自较浅层的信号未经任何修改直接映射到较深层的特性。\n近期，以超连接（Hyper-Connections，HC）（Zhu 等人，2024）为代表的研究为残差连接引入了新维度，并通过实证验证了其性能潜力。HC的单层架构如图1(b)所示。通过扩展残差流宽度并增强连接复杂度，HC在不改变单个单元浮点运算（FLOPs）计算开销的前提下，显著提升了拓扑复杂度。形式化地，HC中的单层传播定义为：\n$$ \\mathbf{x}_{l+1} = \\mathcal{H}_l^{\\text{res}} \\mathbf{x}_l + \\mathcal{H}_l^{\\text{post}}{}^\\top \\mathcal{F}(\\mathcal{H}_l^{\\text{pre}} \\mathbf{x}_l, W_l) \\tag{3} $$\n其中，$\\mathbf{x}l$ 和 $\\mathbf{x}{l+1}$ 分别表示第 $l$ 层的输入和输出。与公式 (1) 中的表述不同，$\\mathbf{x}l$ 和 $\\mathbf{x}{l+1}$ 的特征维度从 $C$ 扩展到了 $n \\times C$，其中 $n$ 是扩展倍率（expansion rate）。项 $\\mathcal{H}_l^{\\text{res}} \\in \\mathbb{R}^{n \\times n}$ 表示一个可学习的映射，用于在残差流（residual stream）内部混合特征。同样作为可学习映射，$\\mathcal{H}_l^{\\text{pre}} \\in \\mathbb{R}^{1 \\times n}$ 将来自 $nC$ 维流中的特征聚合为一个 $C$ 维的层输入；反之，$\\mathcal{H}_l^{\\text{post}} \\in \\mathbb{R}^{1 \\times n}$ 将层的输出重新映射回原始流中。\n然而，随着训练规模的增加，HC引入了潜在的不稳定性风险。主要担忧在于，当架构扩展到多层时，HC的无约束特性会损害恒等映射属性。在包含多个并行流的架构中，理想的恒等映射充当了守恒机制，确保在前向和反向传播过程中流间的平均信号强度保持不变。\n在 HC（Hyper-Connection）的公式化中，可学习映射由两部分系数组成：依赖输入的部分和全局的部分，分别称为动态映射（dynamic mappings）和静态映射（static mappings）。\n形式上，HC 按如下方式计算这些系数：\n$$ \\begin{cases} \\tilde{\\mathbf{x}}_l = \\text{RMSNorm}(\\mathbf{x}_l) \\ \\mathcal{H}_l^{\\text{pre}} = \\alpha_l^{\\text{pre}} \\cdot \\tanh(\\theta_l^{\\text{pre}} \\tilde{\\mathbf{x}}_l^\\top) + \\mathbf{b}_l^{\\text{pre}} \\ \\mathcal{H}_l^{\\text{post}} = \\alpha_l^{\\text{post}} \\cdot \\tanh(\\theta_l^{\\text{post}} \\tilde{\\mathbf{x}}_l^\\top) + \\mathbf{b}_l^{\\text{post}} \\ \\mathcal{H}_l^{\\text{res}} = \\alpha_l^{\\text{res}} \\cdot \\tanh(\\theta_l^{\\text{res}} \\tilde{\\mathbf{x}}_l^\\top) + \\mathbf{b}_l^{\\text{res}} \\end{cases} \\tag{4} $$\n其中，$\\text{RMSNorm}(\\cdot)$（Zhang and Sennrich, 2019）应用于最后一个维度，标量 $\\alpha_l^{\\text{pre}}, \\alpha_l^{\\text{post}}, \\alpha_l^{\\text{res}} \\in \\mathbb{R}$ 是可学习的门控因子，初始化为较小的值。\n动态映射通过线性投影得到，其参数为 $\\theta_l^{\\text{pre}}, \\theta_l^{\\text{post}} \\in \\mathbb{R}^{1 \\times C}$ 和 $\\theta_l^{\\text{res}} \\in \\mathbb{R}^{n \\times C}$；而静态映射则由可学习的偏置项表示：$\\mathbf{b}_l^{\\text{pre}}, \\mathbf{b}_l^{\\text{post}} \\in \\mathbb{R}^{1 \\times n}$ 和 $\\mathbf{b}_l^{\\text{res}} \\in \\mathbb{R}^{n \\times n}$。\nm-HC 鉴于HC方法在训练上的不稳定性，DeepSeek团队通过分析发现主要是由于变换$\\tilde{\\mathcal{H}}_l^{\\text{res}}$不是模守恒的，因此引入了m-HC。这里详细阐述了 m-HC 中 $\\mathcal{H}_l^{\\text{pre}}$、$\\mathcal{H}_l^{\\text{post}}$ 和 $\\mathcal{H}_l^{\\text{res}}$ 的计算过程。给定第 $l$ 层的输入隐藏矩阵 $\\mathbf{x}_l \\in \\mathbb{R}^{n \\times C}$，我们首先将其展平为一个向量 $\\tilde{\\mathbf{x}}_l = \\mathrm{vec}(\\mathbf{x}_l) \\in \\mathbb{R}^{1 \\times nC}$，以保留完整的上下文信息。接着，我们遵循原始 HC 的公式，计算动态映射和静态映射如下：\n$$ \\begin{cases} \\tilde{\\mathbf{x}}’_l = \\text{RMSNorm}(\\tilde{\\mathbf{x}}_l) \\ \\tilde{\\mathcal{H}}_l^{\\text{pre}} = \\alpha_l^{\\text{pre}} \\cdot (\\tilde{\\mathbf{x}}’_l \\varphi_l^{\\text{pre}}) + \\mathbf{b}_l^{\\text{pre}} \\ \\tilde{\\mathcal{H}}_l^{\\text{post}} = \\alpha_l^{\\text{post}} \\cdot (\\tilde{\\mathbf{x}}’_l \\varphi_l^{\\text{post}}) + \\mathbf{b}_l^{\\text{post}} \\ \\tilde{\\mathcal{H}}_l^{\\text{res}} = \\alpha_l^{\\text{res}} \\cdot \\mathrm{mat}(\\tilde{\\mathbf{x}}’_l \\varphi_l^{\\text{res}}) + \\mathbf{b}_l^{\\text{res}} \\end{cases} \\tag{5} $$\n其中，$\\varphi_l^{\\text{pre}}, \\varphi_l^{\\text{post}} \\in \\mathbb{R}^{nC \\times n}$ 和 $\\varphi_l^{\\text{res}} \\in \\mathbb{R}^{nC \\times n^2}$ 是用于动态映射的线性投影矩阵，而 $\\mathrm{mat}(\\cdot)$ 是一个从 $\\mathbb{R}^{1 \\times n^2}$ 到 $\\mathbb{R}^{n \\times n}$ 的 reshape 函数。然后，最终的约束映射通过以下方式获得：\n$$ \\begin{cases} \\mathcal{H}_l^{\\text{pre}} = \\sigma(\\tilde{\\mathcal{H}}_l^{\\text{pre}}) \\ \\mathcal{H}_l^{\\text{post}} = 2\\sigma(\\tilde{\\mathcal{H}}_l^{\\text{post}}) \\ \\mathcal{H}_l^{\\text{res}} = \\text{Sinkhorn-Knopp}(\\tilde{\\mathcal{H}}_l^{\\text{res}}) \\end{cases} \\tag{6} $$\n其中，$\\sigma(\\cdot)$ 表示 Sigmoid 函数。Sinkhorn-Knopp 操作符首先通过指数运算使所有元素为正，然后进行迭代归一化过程：交替对行和列进行缩放，使其和为 1。具体而言，给定一个正矩阵 $\\mathbf{M}^{(0)} = \\exp(\\tilde{\\mathcal{H}}_l^{\\text{res}})$ 作为起点，归一化迭代过程如下：\n$$ \\mathbf{M}^{(t)} = \\mathcal{T}_r\\left( \\mathcal{T}_c(\\mathbf{M}^{(t-1)}) \\right), \\tag{7} $$\n其中，$\\mathcal{T}r$ 和 $\\mathcal{T}c$ 分别表示行归一化和列归一化操作。该过程收敛到一个双随机矩阵 $\\mathcal{H}l^{\\text{res}} = \\mathbf{M}^{(t{\\max})}$，当 $t{\\max} \\to \\infty$ 时成立。在我们的实验中，选择 $t{\\max} = 20$ 作为一个实用的迭代次数。\n在 HC（Hyper-Connection）与 m-HC（Manifold-Constrained Hyper-Connection）两种方法中，输入 $\\mathbf{x}_l \\in \\mathbb{R}^C$ 的维度从单一流（single stream）被扩展为 $n \\times C$，其本质可理解为：将原始隐藏状态复制并并行化为 $n$ 个相互独立的“信息流”（information streams）。尽管该操作在形式上表现为维度的线性扩展，但其核心意图是构建一个多通道表示空间，为后续的动态调制提供结构化基础。\n相较于原始 HC 方法，m-HC 并未改变 $\\mathcal{H}_l^{\\text{pre}}$、$\\mathcal{H}_l^{\\text{post}}$ 与 $\\mathcal{H}_l^{\\text{res}}$ 的整体数学形式，而是重构了其计算机制：HC 通过局部投影矩阵对每个通道独立建模，而 m-HC 则通过全局展平与统一线性映射（$\\tilde{\\mathbf{x}}’_l = \\mathrm{vec}(\\tilde{\\mathbf{x}}_l)$）实现对整个多流表示的联合建模。这一设计不仅提升了参数效率，也增强了跨通道的信息交互能力。\n尤为关键的是，m-HC 对残差映射 $\\mathcal{H}_l^{\\text{res}}$ 引入了 Sinkhorn-Knopp 算法，将其约束为一个双随机矩阵（doubly stochastic matrix）。该操作强制残差路径在 $n$ 个信息流之间实现信息守恒与均衡分配，有效缓解了梯度消失与路径偏置问题，显著提升了训练的稳定性与收敛性。\n从 MoE（Mixture of Experts）的专家并行，到 Multi-Head Attention 的多头注意力机制，再到 m-HC 的结构化多流调制，我们观察到一种清晰的演进范式：模型不断将单一、同质的信息流，解耦为多个异构的并行通道，并通过可学习的投影与约束机制，重新聚合为统一的输出表示。这一模式的本质，是从“单一路径决策”转向“多路径协商与结构化融合”，既保留了并行计算的效率，又通过显式约束增强了表达的鲁棒性与几何一致性。m-HC 正是在这一演化脉络中，首次将流形约束（manifold constraint）引入超连接结构，为下一代高效、稳定的大模型架构提供了新的设计范式。\nPytorch实现参考 下面代码由Qwen3-Next模型帮忙实现：\nimport torch import torch.nn as nn import torch.nn.functional as F from typing import Optional class DeepSeekmHCDecoderLayer(nn.Module): def __init__(self, d_model: int, n_heads: int, n_expansion: int = 4, dropout: float = 0.1, sinkhorn_iters: int = 20): \"\"\" DeepSeek mHC Decoder Layer - 严格复现论文公式 (7) 输入 x_l ∈ (B, L, d_model) → 展平为 (B, L, n*d_model) → 线性映射为 H_pre ∈ (B, L, 1, n) \"\"\" super().__init__() self.d_model = d_model self.n = n_expansion self.sinkhorn_iters = sinkhorn_iters self.input_dim_flat = n_expansion * d_model # n * C # === 1. Self-Attention === self.self_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True) # === 2. Cross-Attention === self.cross_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True) # === 3. mHC: 展平输入后，用三个全局投影矩阵 φ === # φ_pre ∈ (nC, n), φ_post ∈ (nC, n), φ_res ∈ (nC, n²) self.phi_pre = nn.Linear(self.input_dim_flat, n_expansion, bias=False) self.phi_post = nn.Linear(self.input_dim_flat, n_expansion, bias=False) self.phi_res = nn.Linear(self.input_dim_flat, n_expansion * n_expansion, bias=False) # === 4. 标量门控 α (初始化为小值) === self.alpha_pre = nn.Parameter(torch.tensor(0.1)) self.alpha_post = nn.Parameter(torch.tensor(0.1)) self.alpha_res = nn.Parameter(torch.tensor(0.1)) # === 5. 静态偏置 b === self.b_pre = nn.Parameter(torch.zeros(1, n_expansion)) # (1, n) self.b_post = nn.Parameter(torch.zeros(1, n_expansion)) # (1, n) self.b_res = nn.Parameter(torch.zeros(n_expansion, n_expansion)) # (n, n) # === 6. 前馈网络（Gated MLP）=== self.ffn = nn.Sequential( nn.Linear(d_model, d_model * 4), nn.GELU(), nn.Linear(d_model * 4, d_model), nn.Dropout(dropout) ) # === 7. 归一化 === self.norm1 = nn.RMSNorm(d_model) # RMSNorm self.norm2 = nn.RMSNorm(d_model) self.norm3 = nn.RMSNorm(d_model) # === 8. Dropout === self.dropout1 = nn.Dropout(dropout) self.dropout2 = nn.Dropout(dropout) self.dropout3 = nn.Dropout(dropout) def sinkhorn_knopp(self, M: torch.Tensor, max_iters: int = 20) -\u003e torch.Tensor: \"\"\"Sinkhorn-Knopp 迭代归一化，输入为 (B, L, n, n)\"\"\" M = torch.exp(M) # 转为正数 for _ in range(max_iters): M = M / M.sum(dim=-1, keepdim=True) # 行归一化 M = M / M.sum(dim=-2, keepdim=True) # 列归一化 return M def forward(self, tgt: torch.Tensor, memory: torch.Tensor, tgt_mask: Optional[torch.Tensor] = None, memory_mask: Optional[torch.Tensor] = None, tgt_key_padding_mask: Optional[torch.Tensor] = None, memory_key_padding_mask: Optional[torch.Tensor] = None): B, L, C = tgt.shape # C = d_model # === 1. Self-Attention with mHC === tgt_norm = self.norm1(tgt) # (B, L, C) # --- 自注意力主路径 --- tgt2, _ = self.self_attn(tgt_norm, tgt_norm, tgt_norm, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask) tgt2 = self.dropout1(tgt2) # --- 展平输入为 1×(n×C) 向量：用于公式 (7) 的 \\tilde{x}'_l --- # 将每个位置的 C 维向量，复制 n 份 → 形成 (B, L, n, C)，然后展平为 (B, L, n*C) x_flat = tgt_norm.unsqueeze(-2).expand(B, L, self.n, C).reshape(B, L, self.n * C) # (B, L, nC) # --- 计算公式 (7) 的三个动态映射 --- # \\tilde{H}_l^pre = α_pre * (x_flat @ φ_pre) + b_pre # x_flat: (B, L, nC), φ_pre: (nC, n) → 输出 (B, L, n) H_tilde_pre = self.alpha_pre * self.phi_pre(x_flat) + self.b_pre # (B, L, n) H_tilde_post = self.alpha_post * self.phi_post(x_flat) + self.b_post # (B, L, n) H_tilde_res = self.alpha_res * self.phi_res(x_flat).view(B, L, self.n, self.n) + self.b_res # (B, L, n, n) # --- 应用约束：公式 (8) --- H_pre = torch.sigmoid(H_tilde_pre).unsqueeze(-2) # (B, L, 1, n) H_post = 2 * torch.sigmoid(H_tilde_post).unsqueeze(-2) # (B, L, 1, n) H_res = self.sinkhorn_knopp(H_tilde_res, self.sinkhorn_iters) # (B, L, n, n) # --- 主干变换：先用 H_pre 聚合，再过 ffn，再用 H_post 调制 --- # 注意：这里没有 W_exp！而是直接用 H_pre 作为聚合权重 # 我们需要一个“聚合”操作：对每个位置，将 n 份相同的 x_flat 用 H_pre 加权 # 但注意：x_flat 是展平后的向量，我们想对原始 x_norm 做加权平均 # 所以：x_agg = H_pre @ x_norm → 但 x_norm 是 (B, L, C)，H_pre 是 (B, L, 1, n) # 我们需要将 x_norm 扩展为 (B, L, n, C)，然后做加权平均 x_expanded = tgt_norm.unsqueeze(-2).expand(B, L, self.n, C) # (B, L, n, C) x_agg = torch.einsum('bl1n,blnc-\u003eblc', H_pre, x_expanded) # (B, L, C) # 主干变换：FFN x_main = self.ffn(x_agg) # (B, L, C) # 用 H_post 调制输出 x_main_expanded = x_main.unsqueeze(-2).expand(B, L, self.n, C) # (B, L, n, C) x_post = torch.einsum('bl1n,blnc-\u003eblc', H_post, x_main_expanded) # (B, L, C) # --- 残差路径：H_res 作用于 x_expanded (即 n 份 x_norm) --- # H_res: (B, L, n, n), x_expanded: (B, L, n, C) x_res = torch.einsum('blnn,blnc-\u003eblnc', H_res, x_expanded) # (B, L, n, C) x_res = x_res + x_expanded # 残差连接 x_res_agg = x_res.mean(dim=-2) # 平均聚合 → (B, L, C) # --- 最终输出：注意力 + mHC主干 + mHC残差 --- tgt = tgt + tgt2 + x_post + x_res_agg # === 2. Cross-Attention === tgt_norm2 = self.norm2(tgt) tgt2, _ = self.cross_attn(tgt_norm2, memory, memory, attn_mask=memory_mask, key_padding_mask=memory_key_padding_mask) tgt2 = self.dropout2(tgt2) tgt = tgt + tgt2 # === 3. Feed Forward === tgt_norm3 = self.norm3(tgt) tgt2 = self.ffn(tgt_norm3) tgt2 = self.dropout3(tgt2) tgt = tgt + tgt2 return tgt if __name__ == '__main__': # 参数设置 d_model = 512 n_heads = 8 n_expansion = 4 batch_size = 2 seq_len = 10 memory_len = 15 layer = DeepSeekmHCDecoderLayer(d_model=d_model, n_heads=n_heads, n_expansion=n_expansion) tgt = torch.randn(batch_size, seq_len, d_model) memory = torch.randn(batch_size, memory_len, d_model) output = layer(tgt, memory) print(\"Output shape:\", output.shape) # torch.Size([2, 10, 512]) ",
+  "wordCount" : "1079",
+  "inLanguage": "en",
+  "datePublished": "2025-01-08T00:00:00Z",
+  "dateModified": "2025-01-08T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "fandengdong"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://localhost:1313/llm/architecture/mhc/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "My work notes",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://localhost:1313/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="My work notes (Alt + H)">My work notes</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/llm/" title="大语言模型 (LLM)">
+                    <span>大语言模型 (LLM)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/toolbox/" title="工具箱 (toolbox)">
+                    <span>工具箱 (toolbox)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/rl/" title="强化学习 (RL)">
+                    <span>强化学习 (RL)</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/" title="欢迎来到我的工作空间">
+                    <span>欢迎来到我的工作空间</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+            delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false }
+            ],
+            trust: true,
+            throwOnError: false
+        });
+        });
+    </script>
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      mHC - Manifold-Constrained Hyper-Connections 流形约束超链接
+    </h1>
+    <div class="post-meta"><span title='2025-01-08 00:00:00 +0000 UTC'>January 8, 2025</span>&nbsp;·&nbsp;<span>fandengdong</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>Ref: <a href="https://arxiv.org/abs/2512.24880v1">mHC: Manifold-Constrained Hyper-Connections </a></p>
+<img src="mHC.jpg" alt="mHC" style="width:80%;height:auto;">
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>自从ResNets的提出，深度神经网络架构经历了快速的演进。一个常规的ResNet层结果如上面图(a)所示，其数学表达式描述为：</p>
+<p>$$
+\mathbf{x}_{l+1} = \mathbf{x}_l + \mathcal{F}(\mathbf{x}_l, W_l)             \tag{1}
+$$</p>
+<p>其中$\mathbf{x}<em>l$和$\mathbf{x}</em>{l+1}$表示输入和输出向量，是一个$C$维度的向量。$\mathcal{F}$表示残差函数，$W_l$表示权重矩阵。尽管残差函数F在过去十年中已发展出卷积、注意力机制和前馈网络等多种操作，但残差连接的范式仍保持其原始形式。随着Transformer架构的发展，该范式目前已确立为大型语言模型（LLMs）的基本设计元素。</p>
+<p>这一成功主要归功于残差连接的简洁形式。更重要的是，早期研究揭示了残差连接的恒等映射特性在大规模训练中保持稳定性和效率。通过递归扩展残差连接跨越多层，等式（1）得出：</p>
+<p>$$
+\mathbf{x}_{L} = \mathbf{x}<em>l + \sum</em>{i=l}^{L-1} \mathcal{F}(\mathbf{x}_l, W_l)             \tag{2}
+$$</p>
+<p>其中$L$和$l$分别对应较深和较浅的层。恒等映射项指的是组件$x_l$本身，强调了来自较浅层的信号未经任何修改直接映射到较深层的特性。</p>
+<p>近期，以超连接（Hyper-Connections，HC）（Zhu 等人，2024）为代表的研究为残差连接引入了新维度，并通过实证验证了其性能潜力。HC的单层架构如图1(b)所示。通过扩展残差流宽度并增强连接复杂度，HC在不改变单个单元浮点运算（FLOPs）计算开销的前提下，显著提升了拓扑复杂度。形式化地，HC中的单层传播定义为：</p>
+<p>$$
+\mathbf{x}_{l+1} = \mathcal{H}_l^{\text{res}} \mathbf{x}_l + \mathcal{H}_l^{\text{post}}{}^\top \mathcal{F}(\mathcal{H}_l^{\text{pre}}   \mathbf{x}_l, W_l)    \tag{3}
+$$</p>
+<p>其中，$\mathbf{x}<em>l$ 和 $\mathbf{x}</em>{l+1}$ 分别表示第 $l$ 层的输入和输出。与公式 (1) 中的表述不同，$\mathbf{x}<em>l$ 和 $\mathbf{x}</em>{l+1}$ 的特征维度从 $C$ 扩展到了 $n \times C$，其中 $n$ 是扩展倍率（expansion rate）。项 $\mathcal{H}_l^{\text{res}} \in \mathbb{R}^{n \times n}$ 表示一个可学习的映射，用于在残差流（residual stream）内部混合特征。同样作为可学习映射，$\mathcal{H}_l^{\text{pre}} \in \mathbb{R}^{1 \times n}$ 将来自 $nC$ 维流中的特征聚合为一个 $C$ 维的层输入；反之，$\mathcal{H}_l^{\text{post}} \in \mathbb{R}^{1 \times n}$ 将层的输出重新映射回原始流中。</p>
+<p>然而，随着训练规模的增加，HC引入了潜在的不稳定性风险。主要担忧在于，当架构扩展到多层时，HC的无约束特性会损害恒等映射属性。在包含多个并行流的架构中，理想的恒等映射充当了守恒机制，确保在前向和反向传播过程中流间的平均信号强度保持不变。</p>
+<p>在 HC（Hyper-Connection）的公式化中，可学习映射由两部分系数组成：依赖输入的部分和全局的部分，分别称为<strong>动态映射</strong>（dynamic mappings）和<strong>静态映射</strong>（static mappings）。<br>
+形式上，HC 按如下方式计算这些系数：</p>
+<p>$$
+\begin{cases}
+\tilde{\mathbf{x}}_l = \text{RMSNorm}(\mathbf{x}_l) \
+\mathcal{H}_l^{\text{pre}} = \alpha_l^{\text{pre}} \cdot \tanh(\theta_l^{\text{pre}} \tilde{\mathbf{x}}_l^\top) + \mathbf{b}_l^{\text{pre}} \
+\mathcal{H}_l^{\text{post}} = \alpha_l^{\text{post}} \cdot \tanh(\theta_l^{\text{post}} \tilde{\mathbf{x}}_l^\top) + \mathbf{b}_l^{\text{post}} \
+\mathcal{H}_l^{\text{res}} = \alpha_l^{\text{res}} \cdot \tanh(\theta_l^{\text{res}} \tilde{\mathbf{x}}_l^\top) + \mathbf{b}_l^{\text{res}}
+\end{cases}
+\tag{4}
+$$</p>
+<p>其中，$\text{RMSNorm}(\cdot)$（Zhang and Sennrich, 2019）应用于最后一个维度，标量 $\alpha_l^{\text{pre}}, \alpha_l^{\text{post}}, \alpha_l^{\text{res}} \in \mathbb{R}$ 是可学习的门控因子，初始化为较小的值。<br>
+动态映射通过线性投影得到，其参数为 $\theta_l^{\text{pre}}, \theta_l^{\text{post}} \in \mathbb{R}^{1 \times C}$ 和 $\theta_l^{\text{res}} \in \mathbb{R}^{n \times C}$；而静态映射则由可学习的偏置项表示：$\mathbf{b}_l^{\text{pre}}, \mathbf{b}_l^{\text{post}} \in \mathbb{R}^{1 \times n}$ 和 $\mathbf{b}_l^{\text{res}} \in \mathbb{R}^{n \times n}$。</p>
+<h2 id="m-hc">m-HC<a hidden class="anchor" aria-hidden="true" href="#m-hc">#</a></h2>
+<p>鉴于HC方法在训练上的不稳定性，DeepSeek团队通过分析发现主要是由于变换$\tilde{\mathcal{H}}_l^{\text{res}}$不是模守恒的，因此引入了m-HC。这里详细阐述了 m-HC 中 $\mathcal{H}_l^{\text{pre}}$、$\mathcal{H}_l^{\text{post}}$ 和 $\mathcal{H}_l^{\text{res}}$ 的计算过程。给定第 $l$ 层的输入隐藏矩阵 $\mathbf{x}_l \in \mathbb{R}^{n \times C}$，我们首先将其展平为一个向量 $\tilde{\mathbf{x}}_l = \mathrm{vec}(\mathbf{x}_l) \in \mathbb{R}^{1 \times nC}$，以保留完整的上下文信息。接着，我们遵循原始 HC 的公式，计算动态映射和静态映射如下：</p>
+<p>$$
+\begin{cases}
+\tilde{\mathbf{x}}&rsquo;_l = \text{RMSNorm}(\tilde{\mathbf{x}}_l) \
+\tilde{\mathcal{H}}_l^{\text{pre}} = \alpha_l^{\text{pre}} \cdot (\tilde{\mathbf{x}}&rsquo;_l \varphi_l^{\text{pre}}) + \mathbf{b}_l^{\text{pre}} \
+\tilde{\mathcal{H}}_l^{\text{post}} = \alpha_l^{\text{post}} \cdot (\tilde{\mathbf{x}}&rsquo;_l \varphi_l^{\text{post}}) + \mathbf{b}_l^{\text{post}} \
+\tilde{\mathcal{H}}_l^{\text{res}} = \alpha_l^{\text{res}} \cdot \mathrm{mat}(\tilde{\mathbf{x}}&rsquo;_l \varphi_l^{\text{res}}) + \mathbf{b}_l^{\text{res}}
+\end{cases}
+\tag{5}
+$$</p>
+<p>其中，$\varphi_l^{\text{pre}}, \varphi_l^{\text{post}} \in \mathbb{R}^{nC \times n}$ 和 $\varphi_l^{\text{res}} \in \mathbb{R}^{nC \times n^2}$ 是用于动态映射的线性投影矩阵，而 $\mathrm{mat}(\cdot)$ 是一个从 $\mathbb{R}^{1 \times n^2}$ 到 $\mathbb{R}^{n \times n}$ 的 reshape 函数。然后，最终的约束映射通过以下方式获得：</p>
+<p>$$
+\begin{cases}
+\mathcal{H}_l^{\text{pre}} = \sigma(\tilde{\mathcal{H}}_l^{\text{pre}}) \
+\mathcal{H}_l^{\text{post}} = 2\sigma(\tilde{\mathcal{H}}_l^{\text{post}}) \
+\mathcal{H}_l^{\text{res}} = \text{Sinkhorn-Knopp}(\tilde{\mathcal{H}}_l^{\text{res}})
+\end{cases}
+\tag{6}
+$$</p>
+<p>其中，$\sigma(\cdot)$ 表示 Sigmoid 函数。Sinkhorn-Knopp 操作符首先通过指数运算使所有元素为正，然后进行迭代归一化过程：交替对行和列进行缩放，使其和为 1。具体而言，给定一个正矩阵 $\mathbf{M}^{(0)} = \exp(\tilde{\mathcal{H}}_l^{\text{res}})$ 作为起点，归一化迭代过程如下：</p>
+<p>$$
+\mathbf{M}^{(t)} = \mathcal{T}_r\left( \mathcal{T}_c(\mathbf{M}^{(t-1)}) \right),
+\tag{7}
+$$</p>
+<p>其中，$\mathcal{T}<em>r$ 和 $\mathcal{T}<em>c$ 分别表示行归一化和列归一化操作。该过程收敛到一个双随机矩阵 $\mathcal{H}<em>l^{\text{res}} = \mathbf{M}^{(t</em>{\max})}$，当 $t</em>{\max} \to \infty$ 时成立。在我们的实验中，选择 $t</em>{\max} = 20$ 作为一个实用的迭代次数。</p>
+<hr>
+<ul>
+<li>
+<p>在 HC（Hyper-Connection）与 m-HC（Manifold-Constrained Hyper-Connection）两种方法中，输入 $\mathbf{x}_l \in \mathbb{R}^C$ 的维度从单一流（single stream）被扩展为 $n \times C$，其本质可理解为：<strong>将原始隐藏状态复制并并行化为 $n$ 个相互独立的“信息流”（information streams）</strong>。尽管该操作在形式上表现为维度的线性扩展，但其核心意图是构建一个<strong>多通道表示空间</strong>，为后续的动态调制提供结构化基础。</p>
+</li>
+<li>
+<p>相较于原始 HC 方法，m-HC 并未改变 $\mathcal{H}_l^{\text{pre}}$、$\mathcal{H}_l^{\text{post}}$ 与 $\mathcal{H}_l^{\text{res}}$ 的整体数学形式，而是<strong>重构了其计算机制</strong>：HC 通过局部投影矩阵对每个通道独立建模，而 m-HC 则通过<strong>全局展平与统一线性映射</strong>（$\tilde{\mathbf{x}}&rsquo;_l = \mathrm{vec}(\tilde{\mathbf{x}}_l)$）实现对整个多流表示的联合建模。这一设计不仅提升了参数效率，也增强了跨通道的信息交互能力。</p>
+</li>
+<li>
+<p>尤为关键的是，m-HC 对残差映射 $\mathcal{H}_l^{\text{res}}$ 引入了 <strong>Sinkhorn-Knopp 算法</strong>，将其约束为一个双随机矩阵（doubly stochastic matrix）。该操作强制残差路径在 $n$ 个信息流之间实现<strong>信息守恒与均衡分配</strong>，有效缓解了梯度消失与路径偏置问题，显著提升了训练的稳定性与收敛性。</p>
+</li>
+<li>
+<p>从 MoE（Mixture of Experts）的专家并行，到 Multi-Head Attention 的多头注意力机制，再到 m-HC 的结构化多流调制，我们观察到一种清晰的演进范式：<strong>模型不断将单一、同质的信息流，解耦为多个异构的并行通道，并通过可学习的投影与约束机制，重新聚合为统一的输出表示</strong>。这一模式的本质，是<strong>从“单一路径决策”转向“多路径协商与结构化融合”</strong>，既保留了并行计算的效率，又通过显式约束增强了表达的鲁棒性与几何一致性。m-HC 正是在这一演化脉络中，首次将<strong>流形约束</strong>（manifold constraint）引入超连接结构，为下一代高效、稳定的大模型架构提供了新的设计范式。</p>
+</li>
+</ul>
+<hr>
+<h2 id="pytorch实现参考">Pytorch实现参考<a hidden class="anchor" aria-hidden="true" href="#pytorch实现参考">#</a></h2>
+<p>下面代码由Qwen3-Next模型帮忙实现：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DeepSeekmHCDecoderLayer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n_expansion</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">dropout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">sinkhorn_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">        DeepSeek mHC Decoder Layer - 严格复现论文公式 (7)
+</span></span></span><span class="line"><span class="cl"><span class="s2">        输入 x_l ∈ (B, L, d_model) → 展平为 (B, L, n*d_model) → 线性映射为 H_pre ∈ (B, L, 1, n)
+</span></span></span><span class="line"><span class="cl"><span class="s2">        &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">d_model</span> <span class="o">=</span> <span class="n">d_model</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">n_expansion</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">sinkhorn_iters</span> <span class="o">=</span> <span class="n">sinkhorn_iters</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">input_dim_flat</span> <span class="o">=</span> <span class="n">n_expansion</span> <span class="o">*</span> <span class="n">d_model</span>  <span class="c1"># n * C</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 1. Self-Attention ===</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">n_heads</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 2. Cross-Attention ===</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">cross_attn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">n_heads</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 3. mHC: 展平输入后，用三个全局投影矩阵 φ ===</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># φ_pre ∈ (nC, n), φ_post ∈ (nC, n), φ_res ∈ (nC, n²)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">phi_pre</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim_flat</span><span class="p">,</span> <span class="n">n_expansion</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">phi_post</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim_flat</span><span class="p">,</span> <span class="n">n_expansion</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">phi_res</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim_flat</span><span class="p">,</span> <span class="n">n_expansion</span> <span class="o">*</span> <span class="n">n_expansion</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 4. 标量门控 α (初始化为小值) ===</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha_pre</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha_post</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha_res</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 5. 静态偏置 b ===</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">b_pre</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_expansion</span><span class="p">))</span>      <span class="c1"># (1, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">b_post</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_expansion</span><span class="p">))</span>     <span class="c1"># (1, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">b_res</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_expansion</span><span class="p">,</span> <span class="n">n_expansion</span><span class="p">))</span>  <span class="c1"># (n, n)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 6. 前馈网络（Gated MLP）===</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">ffn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span> <span class="o">*</span> <span class="mi">4</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="n">nn</span><span class="o">.</span><span class="n">GELU</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span> <span class="o">*</span> <span class="mi">4</span><span class="p">,</span> <span class="n">d_model</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 7. 归一化 ===</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">RMSNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>   <span class="c1"># RMSNorm</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">RMSNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">norm3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">RMSNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 8. Dropout ===</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">dropout1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">dropout2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">dropout3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">sinkhorn_knopp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">M</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">max_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Sinkhorn-Knopp 迭代归一化，输入为 (B, L, n, n)&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">M</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>  <span class="c1"># 转为正数</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iters</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">M</span> <span class="o">=</span> <span class="n">M</span> <span class="o">/</span> <span class="n">M</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># 行归一化</span>
+</span></span><span class="line"><span class="cl">            <span class="n">M</span> <span class="o">=</span> <span class="n">M</span> <span class="o">/</span> <span class="n">M</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># 列归一化</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">M</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">tgt</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">memory</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">tgt_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">memory_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">tgt_key_padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">memory_key_padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">B</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">C</span> <span class="o">=</span> <span class="n">tgt</span><span class="o">.</span><span class="n">shape</span>  <span class="c1"># C = d_model</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 1. Self-Attention with mHC ===</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt_norm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">tgt</span><span class="p">)</span>  <span class="c1"># (B, L, C)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># --- 自注意力主路径 ---</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt2</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_attn</span><span class="p">(</span><span class="n">tgt_norm</span><span class="p">,</span> <span class="n">tgt_norm</span><span class="p">,</span> <span class="n">tgt_norm</span><span class="p">,</span> <span class="n">attn_mask</span><span class="o">=</span><span class="n">tgt_mask</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                 <span class="n">key_padding_mask</span><span class="o">=</span><span class="n">tgt_key_padding_mask</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout1</span><span class="p">(</span><span class="n">tgt2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># --- 展平输入为 1×(n×C) 向量：用于公式 (7) 的 \tilde{x}&#39;_l ---</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 将每个位置的 C 维向量，复制 n 份 → 形成 (B, L, n, C)，然后展平为 (B, L, n*C)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_flat</span> <span class="o">=</span> <span class="n">tgt_norm</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">*</span> <span class="n">C</span><span class="p">)</span>  <span class="c1"># (B, L, nC)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># --- 计算公式 (7) 的三个动态映射 ---</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># \tilde{H}_l^pre = α_pre * (x_flat @ φ_pre) + b_pre</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># x_flat: (B, L, nC), φ_pre: (nC, n) → 输出 (B, L, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">H_tilde_pre</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha_pre</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_pre</span><span class="p">(</span><span class="n">x_flat</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">b_pre</span>  <span class="c1"># (B, L, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">H_tilde_post</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha_post</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_post</span><span class="p">(</span><span class="n">x_flat</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">b_post</span>  <span class="c1"># (B, L, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">H_tilde_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha_res</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_res</span><span class="p">(</span><span class="n">x_flat</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">b_res</span>  <span class="c1"># (B, L, n, n)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># --- 应用约束：公式 (8) ---</span>
+</span></span><span class="line"><span class="cl">        <span class="n">H_pre</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">H_tilde_pre</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># (B, L, 1, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">H_post</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">H_tilde_post</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># (B, L, 1, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">H_res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sinkhorn_knopp</span><span class="p">(</span><span class="n">H_tilde_res</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sinkhorn_iters</span><span class="p">)</span>  <span class="c1"># (B, L, n, n)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># --- 主干变换：先用 H_pre 聚合，再过 ffn，再用 H_post 调制 ---</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 注意：这里没有 W_exp！而是直接用 H_pre 作为聚合权重</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 我们需要一个“聚合”操作：对每个位置，将 n 份相同的 x_flat 用 H_pre 加权</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 但注意：x_flat 是展平后的向量，我们想对原始 x_norm 做加权平均</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 所以：x_agg = H_pre @ x_norm → 但 x_norm 是 (B, L, C)，H_pre 是 (B, L, 1, n)</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># 我们需要将 x_norm 扩展为 (B, L, n, C)，然后做加权平均</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">x_expanded</span> <span class="o">=</span> <span class="n">tgt_norm</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>  <span class="c1"># (B, L, n, C)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_agg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;bl1n,blnc-&gt;blc&#39;</span><span class="p">,</span> <span class="n">H_pre</span><span class="p">,</span> <span class="n">x_expanded</span><span class="p">)</span>  <span class="c1"># (B, L, C)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># 主干变换：FFN</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_main</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ffn</span><span class="p">(</span><span class="n">x_agg</span><span class="p">)</span>  <span class="c1"># (B, L, C)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># 用 H_post 调制输出</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_main_expanded</span> <span class="o">=</span> <span class="n">x_main</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">C</span><span class="p">)</span>  <span class="c1"># (B, L, n, C)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_post</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;bl1n,blnc-&gt;blc&#39;</span><span class="p">,</span> <span class="n">H_post</span><span class="p">,</span> <span class="n">x_main_expanded</span><span class="p">)</span>  <span class="c1"># (B, L, C)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># --- 残差路径：H_res 作用于 x_expanded (即 n 份 x_norm) ---</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># H_res: (B, L, n, n), x_expanded: (B, L, n, C)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_res</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;blnn,blnc-&gt;blnc&#39;</span><span class="p">,</span> <span class="n">H_res</span><span class="p">,</span> <span class="n">x_expanded</span><span class="p">)</span>  <span class="c1"># (B, L, n, C)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_res</span> <span class="o">=</span> <span class="n">x_res</span> <span class="o">+</span> <span class="n">x_expanded</span>  <span class="c1"># 残差连接</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x_res_agg</span> <span class="o">=</span> <span class="n">x_res</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># 平均聚合 → (B, L, C)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># --- 最终输出：注意力 + mHC主干 + mHC残差 ---</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt</span> <span class="o">=</span> <span class="n">tgt</span> <span class="o">+</span> <span class="n">tgt2</span> <span class="o">+</span> <span class="n">x_post</span> <span class="o">+</span> <span class="n">x_res_agg</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 2. Cross-Attention ===</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt_norm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">(</span><span class="n">tgt</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt2</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cross_attn</span><span class="p">(</span><span class="n">tgt_norm2</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">attn_mask</span><span class="o">=</span><span class="n">memory_mask</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                  <span class="n">key_padding_mask</span><span class="o">=</span><span class="n">memory_key_padding_mask</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout2</span><span class="p">(</span><span class="n">tgt2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt</span> <span class="o">=</span> <span class="n">tgt</span> <span class="o">+</span> <span class="n">tgt2</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># === 3. Feed Forward ===</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt_norm3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm3</span><span class="p">(</span><span class="n">tgt</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ffn</span><span class="p">(</span><span class="n">tgt_norm3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout3</span><span class="p">(</span><span class="n">tgt2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tgt</span> <span class="o">=</span> <span class="n">tgt</span> <span class="o">+</span> <span class="n">tgt2</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">tgt</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># 参数设置</span>
+</span></span><span class="line"><span class="cl">    <span class="n">d_model</span> <span class="o">=</span> <span class="mi">512</span>
+</span></span><span class="line"><span class="cl">    <span class="n">n_heads</span> <span class="o">=</span> <span class="mi">8</span>
+</span></span><span class="line"><span class="cl">    <span class="n">n_expansion</span> <span class="o">=</span> <span class="mi">4</span>
+</span></span><span class="line"><span class="cl">    <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl">    <span class="n">seq_len</span> <span class="o">=</span> <span class="mi">10</span>
+</span></span><span class="line"><span class="cl">    <span class="n">memory_len</span> <span class="o">=</span> <span class="mi">15</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">layer</span> <span class="o">=</span> <span class="n">DeepSeekmHCDecoderLayer</span><span class="p">(</span><span class="n">d_model</span><span class="o">=</span><span class="n">d_model</span><span class="p">,</span> <span class="n">n_heads</span><span class="o">=</span><span class="n">n_heads</span><span class="p">,</span> <span class="n">n_expansion</span><span class="o">=</span><span class="n">n_expansion</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">tgt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">memory</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">memory_len</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">output</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span><span class="n">tgt</span><span class="p">,</span> <span class="n">memory</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Output shape:&#34;</span><span class="p">,</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># torch.Size([2, 10, 512])</span>
+</span></span></code></pre></div>
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">My work notes</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

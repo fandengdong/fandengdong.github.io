@@ -13,10 +13,10 @@ GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每�
 在标准的 **Multi-Head Attention（MHA）** 中：
 - Query（Q）、Key（K）、Value（V） 都被分成 **h 个头**，每个头独立计算注意力。
 - 推理时，K 和 V 需要缓存（KV Cache），总缓存大小为：  
-  \[
+  $$
   \text{Cache Size} = 2 \times h \times n \times d_k
-  \]
-  其中 \(n\) 是上下文长度，\(d_k\) 是每个 head 的维度。
+  $$
+  其中 $n$ 是上下文长度，$d_k$ 是每个 head 的维度。
 
 当模型变大（如 LLaMA-65B，h=64），**KV Cache 占用大量显存**，成为推理瓶颈。
 
@@ -42,7 +42,7 @@ GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每�
 
 例如：
 - h = 32, g = 8 → 每 4 个 Q heads 共享 1 个 K/V head
-- KV Cache 减少为原来的 \( \frac{g}{h} = \frac{1}{4} \)
+- KV Cache 减少为原来的 $ \frac{g}{h} = \frac{1}{4} $
 
 > ✅ **关键思想**：并非所有 query 都需要独立的 key/value 视角；适度共享可大幅节省内存，而性能损失极小。
 
@@ -50,31 +50,31 @@ GQA（Grouped-Query Attention）将多个查询头（Query heads）分组，每�
 
 ## 三、数学细节
 
-设输入为 \( X \in \mathbb{R}^{n \times d_{\text{model}}} \)
+设输入为 $ X \in \mathbb{R}^{n \times d_{\text{model}}} $
 
 1. **线性投影**：
-   \[
+   $$
    Q = X W_Q \in \mathbb{R}^{n \times h d_q}, \quad
    K = X W_K \in \mathbb{R}^{n \times g d_k}, \quad
    V = X W_V \in \mathbb{R}^{n \times g d_v}
-   \]
-   其中通常 \( d_q = d_k = d_v = d_{\text{head}} \)
+   $$
+   其中通常 $ d_q = d_k = d_v = d_{\text{head}} $
 
 2. **reshape**：
-   - \( Q \rightarrow (n, h, d_{\text{head}}) \)
-   - \( K, V \rightarrow (n, g, d_{\text{head}}) \)
+   - $ Q \rightarrow (n, h, d_{\text{head}}) $
+   - $ K, V \rightarrow (n, g, d_{\text{head}}) $
 
 3. **广播匹配**：
    - 将 K/V **重复**（或 view 扩展）为 (n, h, d_head)，使得每组 Q 对应相同的 K/V
    - 例如：若 h=8, g=2，则 K 变成 [k0,k0,k0,k0, k1,k1,k1,k1]
 
 4. **Attention 计算**：
-   \[
+   $$
    \text{Attn}(Q, K, V) = \text{softmax}\left( \frac{Q K^\top}{\sqrt{d_{\text{head}}}} \right) V
-   \]
+   $$
    注意：Q 是 (n, h, d)，K/V 广播后也是 (n, h, d)，可直接点积
 
-5. **输出拼接** → 投影回 \( d_{\text{model}} \)
+5. **输出拼接** → 投影回 $ d_{\text{model}} $
 
 ---
 
